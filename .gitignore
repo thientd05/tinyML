@@ -1,0 +1,21 @@
+# virtualenv
+env/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# datasets and trained artifacts
+dataset/
+model/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# misc
+prompt.xml
