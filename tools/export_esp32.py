@@ -21,11 +21,15 @@ import numpy as np
 import torch
 from sklearn.svm import SVC
 
-from src import utils
-from src.rf import SWEEP as RF_SIZES
-from src.svm import SWEEP as SVM_SIZES
-from src.cnn import SWEEP as CNN_SIZES, ECGCNN
-from src.lstm import SWEEP as LSTM_SIZES, ECGLSTM
+from src import config
+from src.data import build_dataset
+from src.evaluation import compute_metrics
+from src.io import model_path
+from src.models.cnn import SWEEP as CNN_SIZES, ECGCNN
+from src.models.lstm import SWEEP as LSTM_SIZES, ECGLSTM
+from src.models.rf import SWEEP as RF_SIZES
+from src.models.svm import SWEEP as SVM_SIZES
+from src.seeding import set_seed
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "esp32" / "include"
@@ -66,7 +70,7 @@ def stratified_indices(y, n, seed=SEED):
 
 
 def metrics_row(name, y, pred, score):
-    m = utils.compute_metrics(y, pred, score)
+    m = compute_metrics(y, pred, score)
     return (f"  {name:<11} acc={m['accuracy']:.4f}  p={m['precision']:.4f}  "
             f"r={m['recall']:.4f}  f1={m['f1']:.4f}  auc={m.get('roc_auc', float('nan')):.4f}")
 
@@ -194,10 +198,10 @@ def torch_lstm_pred(hidden, layers, sd, X):
 
 # ---------------- main ----------------
 def main():
-    utils.set_seed(SEED)
-    *_, Xf_te, yf = utils.build_dataset(mode="features")
-    *_, Xr_te, yr = utils.build_dataset(mode="raw")
-    *_, Xl_te, yl = utils.build_dataset(mode="lstm")
+    set_seed(SEED)
+    *_, Xf_te, yf = build_dataset(mode="features")
+    *_, Xr_te, yr = build_dataset(mode="raw")
+    *_, Xl_te, yl = build_dataset(mode="lstm")
     assert np.array_equal(yf, yr) and np.array_equal(yf, yl)
     idx = stratified_indices(yf, N_SAMPLES)
     y_true, feat, raw, seq = yf[idx], Xf_te[idx], Xr_te[idx], Xl_te[idx]
@@ -207,7 +211,7 @@ def main():
 
     rf_h = banner("Random Forest: capacity sweep"); rf_cfg = []
     for k, (sz, n_est, depth) in enumerate(RF_SIZES):
-        m = joblib.load(utils.model_path("rf", sz, "pkl"))
+        m = joblib.load(model_path("rf", sz, "pkl"))
         pred, score = rf_forward(m, feat)
         assert np.array_equal(pred, m.predict(feat)), f"RF {sz} parity FAIL"
         print(metrics_row(f"rf_{sz}", y_true, pred, score)); preds_all.append(pred)
@@ -217,7 +221,7 @@ def main():
 
     svm_h = banner("SVM: tiny=linear+calibration, rest=RBF"); svm_cfg = []
     for k, (sz, kernel, _) in enumerate(SVM_SIZES):
-        pipe = joblib.load(utils.model_path("svm", sz, "pkl"))
+        pipe = joblib.load(model_path("svm", sz, "pkl"))
         pred, score = svm_forward(pipe, feat)
         assert np.array_equal(pred, pipe.predict(feat)), f"SVM {sz} parity FAIL"
         print(metrics_row(f"svm_{sz}", y_true, pred, score)); preds_all.append(pred)
@@ -228,24 +232,24 @@ def main():
     cnn_h = banner("1D CNN: capacity sweep (GAP or FC head, BN folded)"); cnn_cfg = []
     cnn_buf = 0
     for k, (sz, channels, fc) in enumerate(CNN_SIZES):
-        sd = torch.load(utils.model_path("cnn", sz, "pt"), map_location="cpu")
+        sd = torch.load(model_path("cnn", sz, "pt"), map_location="cpu")
         layers, head = cnn_layers(sd)
         pred, score = cnn_forward(layers, head, raw)
         assert np.array_equal(pred, torch_cnn_pred(sz, channels, fc, sd, raw)), f"CNN {sz} parity FAIL"
         print(metrics_row(f"cnn_{sz}", y_true, pred, score)); preds_all.append(pred)
-        h, c, b = _emit_cnn(k, layers, head, utils.BEAT_LEN); cnn_h += h; cnn_cfg.append(c); cnn_buf = max(cnn_buf, b)
+        h, c, b = _emit_cnn(k, layers, head, config.BEAT_LEN); cnn_h += h; cnn_cfg.append(c); cnn_buf = max(cnn_buf, b)
     cnn_h = f"#define CNN_BUF {cnn_buf}\n" + cnn_h + _cnn_table(cnn_cfg)
     (OUT / "model_cnn.h").write_text(cnn_h)
 
     lstm_h = banner("LSTM: capacity sweep (last point is 2-layer)"); lstm_cfg = []
     lstm_buf = 0
     for k, (sz, hidden, nlayers) in enumerate(LSTM_SIZES):
-        sd = torch.load(utils.model_path("lstm", sz, "pt"), map_location="cpu")
+        sd = torch.load(model_path("lstm", sz, "pt"), map_location="cpu")
         layers, hw, hb = lstm_layers(sd)
         pred, score = lstm_forward(layers, hw, hb, seq)
         assert np.array_equal(pred, torch_lstm_pred(hidden, nlayers, sd, seq)), f"LSTM {sz} parity FAIL"
         print(metrics_row(f"lstm_{sz}", y_true, pred, score)); preds_all.append(pred)
-        h, c, b = _emit_lstm(k, layers, hw, hb, utils.LSTM_SEQ_LEN); lstm_h += h; lstm_cfg.append(c); lstm_buf = max(lstm_buf, b)
+        h, c, b = _emit_lstm(k, layers, hw, hb, config.LSTM_SEQ_LEN); lstm_h += h; lstm_cfg.append(c); lstm_buf = max(lstm_buf, b)
     lstm_h = f"#define LSTM_BUF {lstm_buf}\n" + lstm_h + _lstm_table(lstm_cfg)
     (OUT / "model_lstm.h").write_text(lstm_h)
 

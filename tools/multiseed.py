@@ -12,13 +12,19 @@ Run:  PYTHONPATH=. ./env/bin/python tools/multiseed.py --seeds 5
 from __future__ import annotations
 
 import argparse
+import importlib
 
 import joblib
 import numpy as np
 
-from src import cost, utils
-from src import rf as rf_mod
-from src import svm as svm_mod
+from src import config
+from src.data import build_dataset
+from src.evaluation import class_weights, evaluate_with_operating_point
+from src.io import model_path, save_metrics_json
+from src.models import cost
+from src.models import rf as rf_mod
+from src.models import svm as svm_mod
+from src.seeding import set_seed
 
 
 def _agg(values):
@@ -41,8 +47,8 @@ def _finalize(family, size, per_seed_recs, per_seed_models, save_fn, ext):
     keys = ["precision_op", "pr_auc", "fpr_op", "recall_op", "recall_deploy"]
     rep["seeds"] = {"n": len(per_seed_recs), "representative_index": med,
                     **{k: _agg([_metrics_of(r)[k] for r in per_seed_recs]) for k in keys}}
-    save_fn(per_seed_models[med], utils.model_path(family, size, ext))
-    utils.save_metrics_json(family, size, rep)
+    save_fn(per_seed_models[med], model_path(family, size, ext))
+    save_metrics_json(family, size, rep)
     s = rep["seeds"]
     print(f"  [{family}/{size:<14}] prec@R {s['precision_op']['mean']:.3f}±{s['precision_op']['std']:.3f} "
           f"pr_auc {s['pr_auc']['mean']:.3f}±{s['pr_auc']['std']:.3f} "
@@ -50,21 +56,24 @@ def _finalize(family, size, per_seed_recs, per_seed_models, save_fn, ext):
 
 
 def run_rf(seeds):
-    Xtr, ytr, Xv, yv, Xte, yte = utils.build_dataset(mode="features")
+    Xtr, ytr, Xv, yv, Xte, yte = build_dataset(mode="features")
     print("[multiseed] RF")
     for size, n_est, depth in rf_mod.SWEEP:
         recs, models = [], []
         for sd in seeds:
-            m = rf_mod.build(n_est, depth); m.random_state = sd
+            m = rf_mod.build(n_est, depth)
+            m.random_state = sd
             m.fit(Xtr, ytr)
-            rec = utils.evaluate_with_operating_point(yv, rf_mod.scores(m, Xv), yte, rf_mod.scores(m, Xte))
+            rec = evaluate_with_operating_point(
+                yv, rf_mod.scores(m, Xv), yte, rf_mod.scores(m, Xte))
             rec.update(family="rf", size=size, cost=cost.rf_cost(m))
-            recs.append(rec); models.append(m)
+            recs.append(rec)
+            models.append(m)
         _finalize("rf", size, recs, models, lambda mdl, p: joblib.dump(mdl, p, compress=3), "pkl")
 
 
 def run_svm(seeds):
-    Xtr, ytr, Xv, yv, Xte, yte = utils.build_dataset(mode="features")
+    Xtr, ytr, Xv, yv, Xte, yte = build_dataset(mode="features")
     n_feat = Xtr.shape[1]
     print("[multiseed] SVM")
     for size, kernel, subsample in svm_mod.SWEEP:
@@ -78,39 +87,40 @@ def run_svm(seeds):
             if hasattr(clf, "random_state"):    # SVC
                 clf.random_state = sd
             pipe.fit(Xs, ys)
-            rec = utils.evaluate_with_operating_point(yv, svm_mod.scores(pipe, Xv), yte, svm_mod.scores(pipe, Xte))
+            rec = evaluate_with_operating_point(
+                yv, svm_mod.scores(pipe, Xv), yte, svm_mod.scores(pipe, Xte))
             rec.update(family="svm", size=size, cost=cost.svm_cost(pipe, n_feat))
-            recs.append(rec); models.append(pipe)
+            recs.append(rec)
+            models.append(pipe)
         _finalize("svm", size, recs, models, lambda mdl, p: joblib.dump(mdl, p, compress=3), "pkl")
 
 
 def run_torch(family, seeds):
     import torch
-    mod = __import__(f"src.{family}", fromlist=["x"])
+    mod = importlib.import_module(f"src.models.{family}")
     mode = "raw" if family == "cnn" else "lstm"
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    Xtr, ytr, Xv, yv, Xte, yte = utils.build_dataset(mode=mode)
-    cw = torch.from_numpy(utils.class_weights(ytr))
+    Xtr, ytr, Xv, yv, Xte, yte = build_dataset(mode=mode)
+    cw = torch.from_numpy(class_weights(ytr))
     print(f"[multiseed] {family.upper()} (device={dev})")
     for entry in mod.SWEEP:
         size = entry[0]
         recs, states = [], []
         for sd in seeds:
-            utils.set_seed(sd)
+            set_seed(sd)
             if family == "cnn":
                 net = mod.ECGCNN(entry[1], entry[2])
             else:
                 net = mod.ECGLSTM(entry[1], entry[2], False)
             mod.train_one(net, Xtr, ytr, Xv, yv, device=dev, epochs=15, batch_size=128,
                           lr=1e-3, weight_decay=1e-4, class_weight_t=cw)
-            rec = utils.evaluate_with_operating_point(
+            rec = evaluate_with_operating_point(
                 yv, mod.scores(net, Xv, device=dev), yte, mod.scores(net, Xte, device=dev))
-            costfn = cost.cnn_cost(entry[1], entry[2], utils.BEAT_LEN) if family == "cnn" \
-                else cost.lstm_cost(entry[1], entry[2], utils.LSTM_SEQ_LEN)
+            costfn = cost.cnn_cost(entry[1], entry[2], config.BEAT_LEN) if family == "cnn" \
+                else cost.lstm_cost(entry[1], entry[2], config.LSTM_SEQ_LEN)
             rec.update(family=family, size=size, cost=costfn)
             recs.append(rec); states.append({k: v.cpu().clone() for k, v in net.state_dict().items()})
-        _finalize(family, size, recs, states,
-                  lambda st, p: __import__("torch").save(st, p), "pt")
+        _finalize(family, size, recs, states, torch.save, "pt")
 
 
 def main():

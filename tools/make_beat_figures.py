@@ -19,9 +19,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.utils import (  # noqa: E402
-    BEAT_HALF, FS, REALIGN_WINDOW, RESULTS_DIR, _load_record, aami_binary_label,
-)
+from src.config import BEAT_HALF, FS, REALIGN_WINDOW, RESULTS_DIR  # noqa: E402
+from src.data.preprocess import _load_record  # noqa: E402
 
 # x-axis in milliseconds, R-peak at 0
 T_MS = (np.arange(2 * BEAT_HALF) - BEAT_HALF) / FS * 1000.0
