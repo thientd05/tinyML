@@ -1,0 +1,12 @@
+{
+  "within": {
+    "rf": "n10_d5",
+    "svm": "linear",
+    "cnn": "c8-16",
+    "lstm": "h8"
+  },
+  "cross": [
+    "svm",
+    "linear"
+  ]
+}

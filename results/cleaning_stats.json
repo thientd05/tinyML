@@ -1,0 +1,28 @@
+{
+  "clean_version": 2,
+  "realign_window": 15,
+  "flatline_ptp_mv": 0.05,
+  "clip_frac": 0.1,
+  "splits": {
+    "train": {
+      "total": 42793,
+      "dropped_edge": 14,
+      "kept": 42773,
+      "dropped_artifact": 6,
+      "dropped_artifact_by_label": [
+        6,
+        0
+      ]
+    },
+    "val": {
+      "total": 8228,
+      "dropped_edge": 1,
+      "kept": 8227
+    },
+    "test": {
+      "total": 49712,
+      "dropped_edge": 15,
+      "kept": 49697
+    }
+  }
+}

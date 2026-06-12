@@ -19,17 +19,21 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC, LinearSVC
 
-from src import utils
+from src import cost, utils
 
 MODEL_NAME = "svm"
 EXT = "pkl"
 
-# (size_label, kernel, train_subsample). subsample=None means use full train set.
-SIZES = [
-    ("tiny",   "linear",  None),
-    ("small",  "rbf",     2_000),
-    ("medium", "rbf",     5_000),
-    ("large",  "rbf",     10_000),
+# Capacity-knob sweep. Knob = #support vectors (RBF), which sets both flash and the
+# per-beat kernel-evaluation cost. Linear is the floor (one weight vector); RBF #SV is
+# steered by the training subsample size. (label, kernel, train_subsample)
+SWEEP = [
+    ("linear", "linear", None),
+    ("rbf1k",  "rbf",     1_000),
+    ("rbf2k",  "rbf",     2_000),
+    ("rbf4k",  "rbf",     4_000),
+    ("rbf7k",  "rbf",     7_000),
+    ("rbf10k", "rbf",    10_000),
 ]
 
 
@@ -68,10 +72,9 @@ def train(pipe: Pipeline, X: np.ndarray, y: np.ndarray) -> Pipeline:
     return pipe
 
 
-def evaluate(pipe: Pipeline, X: np.ndarray, y: np.ndarray) -> dict:
-    y_pred = pipe.predict(X)
-    y_score = pipe.predict_proba(X)[:, 1]
-    return utils.compute_metrics(y, y_pred, y_score)
+def scores(pipe: Pipeline, X: np.ndarray) -> np.ndarray:
+    """P(class=1) in [0, 1] (RBF via probability=True, linear via calibration)."""
+    return pipe.predict_proba(X)[:, 1]
 
 
 def n_support_vectors(pipe: Pipeline) -> int | str:
@@ -87,12 +90,13 @@ def main() -> None:
     args = parser.parse_args()
 
     utils.set_seed(42)
-    X_train, y_train, X_test, y_test = utils.build_dataset(mode="features")
-    print(f"[svm] train shape={X_train.shape}  test shape={X_test.shape}  "
-          f"pos_train={y_train.mean():.3f}  pos_test={y_test.mean():.3f}")
+    X_train, y_train, X_val, y_val, X_test, y_test = utils.build_dataset(mode="features")
+    print(f"[svm] train={X_train.shape} val={X_val.shape} test={X_test.shape}  "
+          f"pos_train={y_train.mean():.3f} pos_val={y_val.mean():.3f} pos_test={y_test.mean():.3f}")
+    n_feat = X_train.shape[1]
 
-    print("[svm] === per-size results (test set) ===")
-    for size, kernel, subsample in SIZES:
+    print(f"[svm] === sweep (DS2; threshold tuned on DS1-val to recall>={utils.TARGET_RECALL}) ===")
+    for size, kernel, subsample in SWEEP:
         path = utils.model_path(MODEL_NAME, size, EXT)
         if path.exists() and not args.retrain:
             pipe = joblib.load(path)
@@ -103,9 +107,14 @@ def main() -> None:
             pipe = train(build(kernel), Xs, ys)
             joblib.dump(pipe, path, compress=3)
             print(f"[svm] saved -> {path}")
-        m = evaluate(pipe, X_test, y_test)
-        utils.save_metrics_json(MODEL_NAME, size, m)
-        utils.print_metrics_row(MODEL_NAME, size, m, n_params=n_support_vectors(pipe))
+        rec = utils.evaluate_with_operating_point(
+            y_val, scores(pipe, X_val), y_test, scores(pipe, X_test))
+        rec.update(family=MODEL_NAME, size=size, cost=cost.svm_cost(pipe, n_feat))
+        utils.save_metrics_json(MODEL_NAME, size, rec)
+        o, c = rec["test_op"], rec["cost"]
+        print(f"  [{size:<16}] tau={rec['threshold']:.3f}  recall={o['recall']:.4f} "
+              f"prec={o['precision']:.4f} fpr={o['fpr']:.4f} f1={o['f1']:.4f} "
+              f"pr_auc={o.get('pr_auc', float('nan')):.4f}  n_sv={c['n_sv']} macs={c['macs']:.0f}")
 
 
 if __name__ == "__main__":
