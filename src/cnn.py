@@ -17,17 +17,20 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from src import utils
+from src import cost, utils
 
 MODEL_NAME = "cnn"
 EXT = "pt"
 
-# (size, conv_channels, fc_hidden)
-SIZES = [
-    ("tiny",   [8],            None),   # GAP -> Linear(8, 2)
-    ("small",  [8, 16],        16),
-    ("medium", [16, 32, 32],   32),
-    ("large",  [16, 32, 64, 64], 64),
+# Capacity-knob sweep. Knob = MACs/beat (drives ESP32 latency); #params drives flash.
+# ~6 width/depth points log-spaced in MACs. (label, conv_channels, fc_hidden)
+SWEEP = [
+    ("c4",           [4],             None),  # GAP -> Linear(4, 2)
+    ("c8",           [8],             None),  # GAP -> Linear(8, 2)
+    ("c8-16",        [8, 16],         16),
+    ("c16-16",       [16, 16],        16),
+    ("c16-32-32",    [16, 32, 32],    32),
+    ("c16-32-64-64", [16, 32, 64, 64], 64),
 ]
 
 
@@ -129,31 +132,20 @@ def train_one(model: nn.Module, X_tr, y_tr, X_val, y_val, *, device,
     return model
 
 
-def evaluate(model: nn.Module, X, y, *, device, batch_size: int = 512) -> dict:
+def scores(model: nn.Module, X, *, device, batch_size: int = 512) -> np.ndarray:
+    """P(class=1) in [0, 1] for each beat."""
     model.to(device).eval()
-    loader = make_loader(X, y, batch_size, shuffle=False)
-    ys, ps, scores = [], [], []
+    loader = make_loader(X, np.zeros(len(X), dtype=np.int64), batch_size, shuffle=False)
+    out = []
     with torch.no_grad():
-        for xb, yb in loader:
+        for xb, _ in loader:
             xb = xb.to(device, non_blocking=True)
-            logits = model(xb)
-            prob = torch.softmax(logits, dim=1)[:, 1]
-            ps.append(logits.argmax(1).cpu().numpy())
-            scores.append(prob.cpu().numpy())
-            ys.append(yb.numpy())
-    return utils.compute_metrics(np.concatenate(ys), np.concatenate(ps), np.concatenate(scores))
+            out.append(torch.softmax(model(xb), dim=1)[:, 1].cpu().numpy())
+    return np.concatenate(out)
 
 
 def n_params(model: nn.Module) -> int:
     return sum(p.numel() for p in model.parameters())
-
-
-def split_train_val(X, y, val_frac: float = 0.1, seed: int = 42):
-    rng = np.random.default_rng(seed)
-    idx = np.arange(len(y)); rng.shuffle(idx)
-    cut = int(len(y) * (1 - val_frac))
-    tr, va = idx[:cut], idx[cut:]
-    return X[tr], y[tr], X[va], y[va]
 
 
 def main() -> None:
@@ -169,14 +161,14 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[cnn] device={device}")
 
-    X_train_full, y_train_full, X_test, y_test = utils.build_dataset(mode="raw")
-    X_tr, y_tr, X_val, y_val = split_train_val(X_train_full, y_train_full)
+    # Patient-pure DS1-val (used for best-F1 checkpoint AND threshold tuning).
+    X_tr, y_tr, X_val, y_val, X_test, y_test = utils.build_dataset(mode="raw")
     cw = torch.from_numpy(utils.class_weights(y_tr))
-    print(f"[cnn] train={X_tr.shape}  val={X_val.shape}  test={X_test.shape}  "
+    print(f"[cnn] train={X_tr.shape} val={X_val.shape} test={X_test.shape}  "
           f"class_weights={cw.tolist()}")
 
-    print("[cnn] === per-size results (test set) ===")
-    for size, channels, fc in SIZES:
+    print(f"[cnn] === sweep (DS2; threshold tuned on DS1-val to recall>={utils.TARGET_RECALL}) ===")
+    for size, channels, fc in SWEEP:
         path = utils.model_path(MODEL_NAME, size, EXT)
         model = ECGCNN(channels, fc)
         if path.exists() and not args.retrain:
@@ -190,9 +182,15 @@ def main() -> None:
                       class_weight_t=cw)
             torch.save(model.state_dict(), path)
             print(f"[cnn] saved -> {path}")
-        m = evaluate(model, X_test, y_test, device=device)
-        utils.save_metrics_json(MODEL_NAME, size, m)
-        utils.print_metrics_row(MODEL_NAME, size, m, n_params=n_params(model))
+        rec = utils.evaluate_with_operating_point(
+            y_val, scores(model, X_val, device=device),
+            y_test, scores(model, X_test, device=device))
+        rec.update(family=MODEL_NAME, size=size, cost=cost.cnn_cost(channels, fc, utils.BEAT_LEN))
+        utils.save_metrics_json(MODEL_NAME, size, rec)
+        o, c = rec["test_op"], rec["cost"]
+        print(f"  [{size:<16}] tau={rec['threshold']:.3f}  recall={o['recall']:.4f} "
+              f"prec={o['precision']:.4f} fpr={o['fpr']:.4f} f1={o['f1']:.4f} "
+              f"pr_auc={o.get('pr_auc', float('nan')):.4f}  params={c['n_params']} macs={c['macs']:.0f}")
 
 
 if __name__ == "__main__":

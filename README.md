@@ -1,103 +1,217 @@
-# pr_tinyml — Phát hiện bất thường trong tín hiệu ECG cho thiết bị biên (ESP32)
+# pr_tinyml — Phát hiện bất thường ECG trên ESP32
 
-Pipeline so sánh **4 mô hình** ML/DL cho bài toán phân loại nhị phân
-**Normal vs Abnormal** trên tín hiệu điện tâm đồ. Mục tiêu cuối cùng là chạy
-trên **ESP32**; giai đoạn này chỉ huấn luyện trên PC (GPU GTX 1650).
+Pipeline so sánh **4 họ mô hình** (Random Forest, SVM, 1D CNN, LSTM) cho bài toán
+phân loại nhịp tim nhị phân **Normal vs Abnormal** (MIT-BIH), rồi **convert và chạy
+thật trên ESP32-WROOM-32**.
 
-## 1. Bài toán
+- **Giai đoạn 1** — huấn luyện + so sánh trên PC (GPU GTX 1650): `src/`.
+- **Giai đoạn 2** — convert sang C thuần và benchmark trên thiết bị: `tools/` + `esp32/`.
 
-- **Đầu vào**: 1 nhịp tim (cửa sổ ±100 mẫu quanh đỉnh R, ~555 ms ở 360 Hz) trên
-  kênh MLII của MIT-BIH. ESP32 thực tế chỉ cần 1 kênh ECG.
-- **Đầu ra**: nhãn `0 = Normal`, `1 = Abnormal`.
-- **Quy ước nhãn (AAMI)**: `N, L, R, e, j → 0`; còn lại → `1`. Bốn bản ghi paced
-  (102, 104, 107, 217) bị loại theo khuyến nghị chuẩn.
-- **Chia dữ liệu**: theo bệnh nhân (de Chazal `DS1` train / `DS2` test) — không
-  shuffle để tránh rò rỉ giữa beat của cùng một người.
+> **TL;DR**: dữ liệu được **làm sạch không rò rỉ nhãn** (sửa lead record 114, RR giữa các
+> nhịp thật, căn đỉnh R, lọc nhịp nhiễu) trước khi train. Mỗi họ **quét capacity knob**
+> (~6 điểm), **train lại trên 5 seed** (báo cáo trung bình ± std, xếp hạng theo trung bình),
+> đánh giá tại **điểm vận hành lâm sàng** (recall ≥ 0.95) và lọc qua **feasibility gate**
+> (latency ≤ 100ms + flash + RAM đo thật). Cả **24 mô hình** parity **1.0000**.
+> **Winner: SVM `linear`** — precision **0.193±0.00 @ recall 0.95**, latency **1.0ms**,
+> flash **0.2KB** — đơn giản nhất, rẻ nhất, và *tái lập được*. Xem phương pháp + bảng dưới.
 
-## 2. Dataset
+> ⚠️ **Phát hiện quan trọng**:
+> 1. Tại recall 0.95 trên **bệnh nhân lạ** (DS2), precision trung bình các họ chỉ
+>    **~0.13–0.19** và **chồng lấn trong dải nhiễu seed (~±0.05)** — không họ nào áp đảo;
+>    bài toán khó thật sự, KHÔNG như F1@0.5 (rf "0.71") tô hồng.
+> 2. precision@recall0.95 của CNN/LSTM **dao động ±0.05 chỉ do seed khởi tạo** → bản cũ báo
+>    "CNN c8-16 = 0.242" là một lần **bốc seed may mắn, KHÔNG tái lập** (mean ~0.17). Vì vậy
+>    nay train **5 seed** và xếp hạng theo **trung bình**.
+> 3. ngưỡng dò trên DS1 chỉ giữ recall ~0.78–0.92 trên DS2 với RF/SVM (khe hở hiệu chỉnh
+>    giữa bệnh nhân), trong khi CNN/LSTM chuyển ngưỡng tốt (recall ~0.96–0.99).
 
-- **MIT-BIH Arrhythmia Database** (PhysioNet): 48 bản ghi, 30 phút mỗi bản,
-  360 Hz, có annotation đỉnh R + nhãn beat.
-- Tự động tải qua `wfdb.io.dl_database('mitdb', ...)` ở lần chạy đầu tiên,
-  lưu vào `dataset/mit-bih-arrhythmia-database-1.0.0/`.
-- Sau khi xử lý, ma trận đặc trưng/raw được cache vào `dataset/cache/*.npz` để
-  những lần chạy sau không phải lọc + segment lại.
+---
 
-## 3. Bốn mô hình
+## 🔬 Phương pháp lựa chọn (thay cho 4 size cảm tính)
 
-| Mô hình | Framework | Đầu vào          | Sizes (tiny / small / medium / large) | Định dạng lưu  |
-|---------|-----------|------------------|---------------------------------------|----------------|
-| **RF**  | sklearn   | features (~30D)  | n_estimators 10 / 20 / 40 / 80; max_depth 4 / 6 / 8 / 10 | `model/rf_<size>.pkl` |
-| **SVM** | sklearn   | features (~30D)  | LinearSVC; RBF-2k / RBF-5k / RBF-10k subsample          | `model/svm_<size>.pkl` |
-| **CNN** | pytorch   | raw 200×1        | conv [8] / [8,16] / [16,32,32] / [16,32,64,64]          | `model/cnn_<size>.pt`  |
-| **LSTM**| pytorch   | seq 100×1 (ds 2) | hidden 8 / 16 / 32 / 32×2 layers                        | `model/lstm_<size>.pt` |
+Phát biểu việc triển khai như **tối ưu có ràng buộc**, mã hóa đúng 3 tiêu chí bài toán:
 
-**Đặc trưng tay (RF/SVM)**: time-domain stats (mean/std/min/max/skew/kurtosis/RMS/p2p/energy/zero-crossings),
-năng lượng wavelet `db4` 4 mức, dominant frequency, spectral entropy, RR-interval (prev/post/ratio/diff).
+1. **Quét capacity knob** — mỗi họ có 1 tham số dung lượng đơn điệu chi phối chi phí
+   ESP32 (RF: tổng số node cây; SVM: #support vector; CNN/LSTM: MACs/nhịp). Quét ~6 điểm
+   trên lưới log để **vẽ đường chất lượng–chi phí** và tìm điểm bão hòa (knee), thay vì
+   đoán 4 size. Cấu hình trong `SWEEP=[...]` đầu mỗi `src/<name>.py`.
+2. **Điểm vận hành lâm sàng** — "bỏ sót bất thường là nguy hiểm nhất" → đặt **sàn độ nhạy
+   recall ≥ 0.95** và **tinh chỉnh ngưỡng** (thay ngưỡng 0.5 mặc định). Ngưỡng dò trên
+   tập **DS1-val patient-pure** (records 207/209/215), báo cáo trên DS2.
+3. **Feasibility gate** — biến thể hợp lệ phải: `latency ≤ 100ms/nhịp` (đo thật ESP32, đã
+   cộng chi phí trích đặc trưng cho RF/SVM) ∧ `flash ≤ 1MB` ∧ `RAM ≤ 64KB`.
+4. **Train lại trên nhiều seed** — precision @ recall 0.95 của mạng raw-beat dao động ~±0.05
+   chỉ do seed khởi tạo, nên mỗi điểm được train **5 seed** (`tools/multiseed.py`); báo cáo
+   **trung bình ± std** và lưu checkpoint seed-median làm đại diện (export/parity dùng nó).
+5. **Chọn**: trong vùng hợp lệ, **max precision *trung bình* @ recall 0.95** (tối thiểu báo
+   động giả, và bền vững với nhiễu huấn luyện).
 
-Mỗi file model tự kiểm tra checkpoint: **đã train rồi → load + test; chưa có →
-train rồi save**. Dùng `--retrain` để ép huấn luyện lại.
+**Hai trục đo tách bạch**: *năng lực* (precision tại recall 0.95 đo trên DS2) vs *chuyển
+ngưỡng* (recall thực tế khi dùng ngưỡng dò trên DS1). Quality lấy từ **toàn DS2 trên PC**
+(tin được vì parity = 1.0000); thiết bị chỉ đo **latency/RAM**.
 
-## 4. Cài đặt môi trường
+## 🏆 Kết quả (winner mỗi họ, tại recall 0.95 trên DS2)
+
+**Phần cứng**: ESP32-D0WD-V3 (Xtensa LX6 @240MHz, 320KB RAM, 4MB flash, không PSRAM).
+`prec@R` = precision tại recall 0.95 (năng lực); `lat` = độ trễ end-to-end đo thật
+(RF/SVM đã + 0.94ms trích đặc trưng db4+FFT); `rec_dep` = recall khi dùng ngưỡng DS1.
+
+| Họ | Biến thể tốt nhất | prec@0.95 (±std) | fpr | PR-AUC | rec_dep | latency | flash | hợp lệ |
+|----|------|:----:|:----:|:----:|:----:|----:|----:|:----:|
+| RF   | `rf_n10_d5`  | 0.127±0.01 | 0.83 | 0.74 | 0.78 ❗ | 1.0 ms | 12 KB | ✓ |
+| **SVM**  | **`svm_linear`** | **0.193±0.00** | 0.49 | 0.73 | 0.92 ❗ | **1.0 ms** | **0.2 KB** | ✓ |
+| CNN  | `cnn_c8-16` | 0.172±0.05 | 0.63 | 0.63 | **0.965 ✓** | 19.8 ms | 53 KB | ✓ |
+| LSTM | `lstm_h8`    | 0.152±0.01 | 0.66 | 0.48 | 0.987 ✓ | 31.1 ms | 1.4 KB | ✓ |
+
+> 🏆 **Cross-family winner: `svm_linear`** — precision 0.193±0.00 @ recall 0.95 (cao nhất
+> theo *trung bình 5 seed*, lại tất định), fpr 0.49, latency 1.0ms, flash 0.2KB. CNN `c8-16`
+> (0.172±0.05) nằm trong dải nhiễu seed của nó nhưng mean thấp hơn và đắt hơn ~20×. Lưu ý:
+> winner thắng theo *năng lực* (precision @ recall 0.95) nhưng có **khe hở hiệu chỉnh ngưỡng**
+> (rec_dep 0.92 ❗); CNN/LSTM chuyển ngưỡng tốt hơn. Cả 24 mô hình parity **1.0000** trên
+> ESP32. Bảng đầy đủ + biểu đồ: `results/summary.csv`,
+> `results/{within_family_quality_vs_cost,cross_family_pareto,pr_curves}.png`;
+> trước/sau làm sạch: `results/summary_v1_before_clean.csv`. Log thiết bị:
+> [`esp32/benchmark_sweep.txt`](esp32/benchmark_sweep.txt).
+
+### Nhận xét (điều cách F1@0.5 cũ che mất)
+
+- **To hơn KHÔNG tốt hơn.** Knee nằm ở model nhỏ; feasibility gate loại đúng các cấu hình
+  phình to: `cnn_c16-32-64-64` (239ms), `lstm_h32x2` (262ms) vượt latency.
+- **Single-run không đáng tin ở operating point này.** precision@recall0.95 của CNN/LSTM
+  dao động **~±0.05 chỉ do seed** → train 5 seed, xếp hạng theo trung bình. "CNN c8-16 =
+  0.242" của bản cũ không tái lập (mean ~0.17).
+- **Mô hình đơn giản nhất thắng theo trung bình:** `svm_linear` (0.193±0.00, tất định, 0.2KB)
+  ≥ các họ phức tạp hơn — vốn chồng lấn trong dải nhiễu seed.
+- **Khe hở hiệu chỉnh ngưỡng**: `rec_dep` ❗ ≈0.78–0.92 cho RF/SVM vs ✓ ≈0.96–0.99 cho
+  CNN/LSTM. Winner thắng theo *năng lực*; chuyển ngưỡng là điểm yếu của họ tuyến tính/cây.
+- **Precision tuyệt đối thấp (mean 0.13–0.19)** ở recall 0.95 trên bệnh nhân lạ — bài toán
+  khó thật, không tô hồng.
+- **Nút thắt là tính toán, không phải bộ nhớ**: working RAM ~5.5KB/320KB.
+
+---
+
+## 1. Bài toán & dữ liệu
+
+- **Đầu vào**: 1 nhịp (±100 mẫu quanh đỉnh R, ~555 ms @360 Hz) chuyển đạo **MLII** của
+  MIT-BIH (chọn theo *tên lead* để mọi bản ghi cùng MLII — sửa record 114 vốn để V5 ở kênh 0).
+- **Đầu ra**: `0 = Normal`, `1 = Abnormal`. Nhãn AAMI: `N,L,R,e,j → 0`, còn lại → `1`.
+  Loại 4 bản ghi paced (102/104/107/217). Mất cân bằng ~11% Abnormal.
+- **Chia theo bệnh nhân** (de Chazal `DS1` train / `DS2` test) — không shuffle chung
+  để tránh rò rỉ beat cùng người.
+- **Làm sạch (label-free, không rò rỉ)** trước khi train, áp y hệt mọi tập: (1) chọn lead
+  MLII theo tên; (2) RR đo giữa các **nhịp thật** liên tiếp (sửa ~4.2% nhịp bị nhiễm bởi
+  annotation không-phải-nhịp); (3) căn cửa sổ vào **đỉnh R thật** (±15 mẫu); (4) lọc nhịp
+  **vật lý hỏng** (flatline/clipping) theo tiêu chí tín hiệu — KHÔNG theo nhãn, KHÔNG theo
+  biên độ. Thực tế chỉ loại vài nhịp (DS2 mất 0 → không cherry-pick test). Chi tiết + bảng
+  trước/sau: `tools/inspect_dataset.py`, `results/cleaning_stats.json`, mục 2 của báo cáo.
+- **Dataset**: MIT-BIH Arrhythmia DB (PhysioNet), tự tải qua `wfdb` lần chạy đầu, cache
+  vào `dataset/cache/mitbih_<mode>_v2.npz` (key `v2` = phiên bản làm sạch).
+
+## 2. Bốn họ mô hình (mỗi họ ~6 điểm quét theo capacity knob)
+
+| Mô hình | Framework | Đầu vào | Capacity knob → SWEEP (`src/<name>.py`) |
+|---------|-----------|---------|------------------------------------------|
+| **RF**  | sklearn   | 21 features | #node cây: `n10_d3 … n80_d12` (n_estimators×max_depth) |
+| **SVM** | sklearn   | 21 features | #support vector: `linear`, `rbf1k … rbf10k` |
+| **CNN** | pytorch   | raw 200×1 | MACs: `c4`, `c8`, `c8-16`, `c16-16`, `c16-32-32`, `c16-32-64-64` |
+| **LSTM**| pytorch   | seq 100×1 | MACs: `h4 … h32`, `h32x2` (2 lớp) |
+
+Knob, #params, flash-bytes tính trong [`src/cost.py`](src/cost.py). Mỗi điểm dump
+metrics @0.5 / @ngưỡng-DS1 / @recall-0.95 + cost ra `model/<name>_<size>_metrics.json`.
+
+**Đặc trưng tay (RF/SVM, 21 chiều)**: thống kê time-domain (mean/std/min/max/skew/
+kurtosis/RMS/p2p/energy/zero-crossings), năng lượng wavelet `db4` 4 mức, dominant
+frequency + spectral entropy, RR-interval (prev/post/ratio/diff). Chi phí trích đặc
+trưng được **đo thật trên ESP32** (db4+FFT, ~0.94ms/nhịp) và cộng vào latency RF/SVM.
+
+## 3. Cài đặt & huấn luyện (PC)
 
 ```bash
-# Tạo venv Python 3.10 (đã có sẵn `env/`)
-python3.10 -m venv env
-source env/bin/activate
-pip install -U pip wheel
-
-# Thư viện CPU-side
+python3.10 -m venv env && source env/bin/activate
 pip install -r requirements.txt
-
-# PyTorch CUDA 12.6 (phù hợp GTX 1650, driver 13.0, nvcc 12.0)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
-# Kiểm tra GPU
-python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+PYTHONPATH=. python tools/inspect_dataset.py   # (tùy chọn) khảo sát lead/RR/nhiễu trước khi làm sạch
+
+python -m src.rf      # Random Forest      python -m src.cnn   # 1D CNN (GPU)
+python -m src.svm     # SVM (linear + RBF)  python -m src.lstm  # LSTM (GPU)
+#  --retrain để ép train lại tất cả điểm sweep (single-seed, nhanh)
+
+# So sánh bền vững: train mỗi điểm trên 5 seed, lưu seed-median + ghi mean/std
+PYTHONPATH=. python tools/multiseed.py --seeds 5
+
+python -m src.analyze              # tổng hợp quality + cost giải tích, chọn winner, vẽ
+python -m src.analyze \
+  --latency esp32/benchmark_sweep.txt --feature-us 937.4 --pr-curves   # + latency thật
+
+python tools/make_report.py        # → results/BaoCao_TinyML_ECG.docx (báo cáo đầy đủ)
 ```
 
-## 5. Chạy huấn luyện / kiểm thử
+Mỗi file model tự load checkpoint nếu có, không thì train rồi lưu vào `model/`. Chạy
+`tools/multiseed.py` để có số liệu **mean ± std trên 5 seed** (winner xếp theo trung bình).
+`src/analyze.py` gom tất cả → `results/summary.csv` (+ `winners.json`, `cleaning_stats.json`)
++ 3 biểu đồ (có error band) + in winner. Không có `--latency` thì trục độ trễ để trống.
 
-Mỗi lệnh sẽ tự xử lý dataset (lần đầu mất ~1-2 phút), sau đó duyệt lần lượt
-4 size. Size đã có checkpoint trong `model/` sẽ được load thẳng để test.
+## 4. Convert & chạy trên ESP32
+
+Pipeline gồm **một script export** (sinh C từ checkpoint, có cổng verify parity) và
+**một firmware benchmark** (PlatformIO/Arduino) chạy cả 24 mô hình bằng kernel C tự
+viết — không dùng TFLite-Micro nên khớp 100% với PC và không phụ thuộc toolchain convert.
+Vì parity = 1.0000, thiết bị chỉ cần đo **latency + RAM** (N nhúng nhỏ = 20 nhịp); chất
+lượng lấy từ toàn DS2 trên PC.
 
 ```bash
-source env/bin/activate
+# 1) Sinh weights + 20 nhịp DS2 nhúng + bảng model -> esp32/include/*.h
+#    (assert: numpy reproduction == sklearn/torch trên từng mẫu, sai là dừng)
+PYTHONPATH=. ./env/bin/python tools/export_esp32.py
 
-python -m src.rf       # Random Forest
-python -m src.svm      # SVM (linear + RBF với subsampling)
-python -m src.cnn      # 1D CNN, GPU
-python -m src.lstm     # LSTM, GPU
+# 2) Build + flash (giữ nút BOOT khi esptool báo "Connecting....")
+./env/bin/pio run -d esp32 -t upload
 
-# Ép train lại tất cả size:
-python -m src.rf --retrain
-
-# Tinh chỉnh DL:
-python -m src.cnn --epochs 25 --batch-size 256 --lr 5e-4
-python -m src.lstm --epochs 20 --batch-size 256
+# 3) Đọc kết quả Serial (headless; tự reset board + dừng ở marker kết thúc)
+PYTHONPATH=. ./env/bin/python tools/read_serial.py /dev/ttyUSB0 60 "loop idle"
 ```
 
-Kết quả từng size in ra console (accuracy / precision / recall / F1 / ROC-AUC /
-confusion matrix) và được dump vào `model/<name>_<size>_metrics.json`.
+**Lưu ý phần cứng (board này)**: mạch auto-reset vào bootloader không ăn → phải **giữ
+nút BOOT** lúc upload. `pio device monitor` cần TTY nên không chạy headless được — dùng
+`tools/read_serial.py` thay thế.
 
-## 6. Cấu trúc thư mục
+### Cách hoạt động
+
+- `tools/export_esp32.py` — duyệt từng checkpoint, **dựng lại forward bằng NumPy** và
+  assert khớp `sklearn/torch.predict`, rồi xuất bảng config + trọng số ra
+  `esp32/include/model_*.h`. RF→if/else; SVM→scaler + (linear+calibration | RBF SV);
+  CNN→conv (BN gập sẵn) + GAP/FC head; LSTM→4 cổng i,f,g,o, hỗ trợ nhiều lớp.
+- `esp32/src/main.cpp` — kernel C generic cho 4 họ + đo độ trễ/RAM, in bảng. Danh sách
+  model dựng từ **bảng sinh tự động** (`MODEL_NAMES/FAM/SUB` trong `test_data.h`) nên tự
+  co giãn theo sweep. `esp32/include/feature_bench.h` đo chi phí db4+FFT cho RF/SVM.
+- Mở rộng/đổi điểm chỉ cần sửa `SWEEP = [...]` trong `src/<name>.py`, train, rồi
+  export lại — kernel C + bảng model đã generic.
+
+## 5. Cấu trúc thư mục
 
 ```
 pr_tinyml/
-├── env/                     # virtualenv (gitignored)
-├── src/
-│   ├── utils.py             # download, preprocess, features, metrics
-│   ├── rf.py / svm.py       # sklearn
-│   └── cnn.py / lstm.py     # pytorch
-├── dataset/                 # tự tạo: MIT-BIH + cache .npz
-├── model/                   # checkpoint + metrics json (rỗng đến khi train)
-├── requirements.txt
-├── README.md
-└── CLAUDE.md
+├── src/                    # PC: utils, cost, rf, svm, cnn, lstm, analyze
+│   ├── cost.py             # MACs/params/flash giải tích mỗi họ
+│   └── analyze.py          # gom + feasibility gate + chọn winner + biểu đồ
+├── tools/
+│   ├── export_esp32.py     # checkpoint -> esp32/include/*.h (+ parity gate + bảng model)
+│   └── read_serial.py      # đọc Serial ESP32 không cần TTY
+├── esp32/                  # PlatformIO project (Arduino framework)
+│   ├── platformio.ini      # board=esp32dev, partition huge_app
+│   ├── src/main.cpp        # harness + kernel C generic (dựng model từ bảng sinh tự động)
+│   ├── include/            # *.h sinh tự động (kernels.h layout; feature_bench.h db4+FFT)
+│   └── benchmark_sweep.txt # log latency on-device (24 model + feat_extract)
+├── results/                # summary.csv + 3 biểu đồ (analyze sinh ra)
+├── dataset/ model/ env/    # tự tạo / gitignored
+├── requirements.txt  README.md  CLAUDE.md
 ```
 
-## 7. Giai đoạn tiếp theo
+## 6. Việc tương lai
 
-- Đo thực tế kích thước/độ trễ trên ESP32 → hiệu chỉnh 4 size (chỉnh trong
-  `SIZES = [...]` của từng file).
-- Convert sang C/C++: TFLite-Micro / ExecuTorch / micromlgen tuỳ mô hình.
+- Tối ưu kernel CNN/LSTM bằng **ESP-DSP / CMSIS-NN** để giảm độ trễ (mở rộng vùng hợp lệ).
+- Lượng tử hóa int8 (hiện đang fp32) để giảm flash + tăng tốc.
+- **Tích hợp** trích đặc trưng db4+FFT vào đường chạy RF/SVM on-device (hiện mới đo chi
+  phí qua `feature_bench.h`) để chạy end-to-end từ tín hiệu thô.
+- Thu hẹp khe hở hiệu chỉnh ngưỡng giữa bệnh nhân (calibration transfer) cho RF/SVM.

@@ -15,17 +15,22 @@ import joblib
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
-from src import utils
+from src import cost, utils
 
 MODEL_NAME = "rf"
 EXT = "pkl"
 
-# (size_label, n_estimators, max_depth)
-SIZES = [
-    ("tiny",   10, 4),
-    ("small",  20, 6),
-    ("medium", 40, 8),
-    ("large",  80, 10),
+# Capacity-knob sweep. Knob = total tree node count (~ n_estimators * 2**depth),
+# which drives both flash and the per-beat traversal cost on the ESP32. ~6 log-spaced
+# points let us draw the quality-vs-cost curve and locate the knee, instead of 4
+# gut-feel sizes. (label, n_estimators, max_depth)
+SWEEP = [
+    ("n10_d3",  10, 3),
+    ("n10_d5",  10, 5),
+    ("n20_d6",  20, 6),
+    ("n30_d8",  30, 8),
+    ("n50_d10", 50, 10),
+    ("n80_d12", 80, 12),
 ]
 
 
@@ -44,14 +49,9 @@ def train(model: RandomForestClassifier, X: np.ndarray, y: np.ndarray) -> Random
     return model
 
 
-def evaluate(model: RandomForestClassifier, X: np.ndarray, y: np.ndarray) -> dict:
-    y_pred = model.predict(X)
-    y_score = model.predict_proba(X)[:, 1] if hasattr(model, "predict_proba") else None
-    return utils.compute_metrics(y, y_pred, y_score)
-
-
-def n_params(model: RandomForestClassifier) -> int:
-    return int(sum(t.tree_.node_count for t in model.estimators_))
+def scores(model: RandomForestClassifier, X: np.ndarray) -> np.ndarray:
+    """P(class=1) in [0, 1]."""
+    return model.predict_proba(X)[:, 1]
 
 
 def main() -> None:
@@ -60,12 +60,12 @@ def main() -> None:
     args = parser.parse_args()
 
     utils.set_seed(42)
-    X_train, y_train, X_test, y_test = utils.build_dataset(mode="features")
-    print(f"[rf] train shape={X_train.shape}  test shape={X_test.shape}  "
-          f"pos_train={y_train.mean():.3f}  pos_test={y_test.mean():.3f}")
+    X_train, y_train, X_val, y_val, X_test, y_test = utils.build_dataset(mode="features")
+    print(f"[rf] train={X_train.shape} val={X_val.shape} test={X_test.shape}  "
+          f"pos_train={y_train.mean():.3f} pos_val={y_val.mean():.3f} pos_test={y_test.mean():.3f}")
 
-    print("[rf] === per-size results (test set) ===")
-    for size, n_est, depth in SIZES:
+    print(f"[rf] === sweep (DS2; threshold tuned on DS1-val to recall>={utils.TARGET_RECALL}) ===")
+    for size, n_est, depth in SWEEP:
         path = utils.model_path(MODEL_NAME, size, EXT)
         if path.exists() and not args.retrain:
             model = joblib.load(path)
@@ -75,9 +75,18 @@ def main() -> None:
             model = train(build(n_est, depth), X_train, y_train)
             joblib.dump(model, path, compress=3)
             print(f"[rf] saved -> {path}")
-        m = evaluate(model, X_test, y_test)
-        utils.save_metrics_json(MODEL_NAME, size, m)
-        utils.print_metrics_row(MODEL_NAME, size, m, n_params=n_params(model))
+        rec = utils.evaluate_with_operating_point(
+            y_val, scores(model, X_val), y_test, scores(model, X_test))
+        rec.update(family=MODEL_NAME, size=size, cost=cost.rf_cost(model))
+        utils.save_metrics_json(MODEL_NAME, size, rec)
+        _print_row(size, rec)
+
+
+def _print_row(size: str, rec: dict) -> None:
+    o, c = rec["test_op"], rec["cost"]
+    print(f"  [{size:<16}] tau={rec['threshold']:.3f}  recall={o['recall']:.4f} "
+          f"prec={o['precision']:.4f} fpr={o['fpr']:.4f} f1={o['f1']:.4f} "
+          f"pr_auc={o.get('pr_auc', float('nan')):.4f}  nodes={c['n_nodes']} ops={c['macs']:.0f}")
 
 
 if __name__ == "__main__":
