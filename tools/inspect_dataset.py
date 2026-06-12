@@ -18,21 +18,22 @@ import collections
 import numpy as np
 import wfdb
 
-from src import utils
+from src import config
+from src.data import aami_binary_label, bandpass_filter
 
-DB = utils.MITBIH_DIR
-ALL_RECORDS = utils.DS1_RECORDS + utils.DS2_RECORDS
+DB = config.MITBIH_DIR
+ALL_RECORDS = config.DS1_RECORDS + config.DS2_RECORDS
 SET_OF = {}
-for r in utils.DS1_TRAIN_RECORDS:
+for r in config.DS1_TRAIN_RECORDS:
     SET_OF[r] = "DS1-train"
-for r in utils.DS1_VAL_RECORDS:
+for r in config.DS1_VAL_RECORDS:
     SET_OF[r] = "DS1-val"
-for r in utils.DS2_RECORDS:
+for r in config.DS2_RECORDS:
     SET_OF[r] = "DS2"
 
 # beat-type symbols actually scored (anything that aami_binary_label maps to 0/1)
 def is_beat(sym: str) -> bool:
-    return utils.aami_binary_label(sym) is not None
+    return aami_binary_label(sym) is not None
 
 
 def sec(title: str) -> None:
@@ -152,7 +153,7 @@ def rpeak_offset():
     offs = []
     for r in ALL_RECORDS[:8]:  # a representative subset is enough for the distribution
         rec = wfdb.rdrecord(str(DB / r), channels=[0])
-        sig = utils.bandpass_filter(rec.p_signal[:, 0].astype(np.float32), fs=int(rec.fs))
+        sig = bandpass_filter(rec.p_signal[:, 0].astype(np.float32), fs=int(rec.fs))
         ann = wfdb.rdann(str(DB / r), "atr")
         for i, s in enumerate(ann.symbol):
             if not is_beat(s):
