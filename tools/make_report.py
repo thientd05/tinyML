@@ -1,7 +1,6 @@
 """Generate a DOCX progress report for the ECG-on-ESP32 project.
 
-Reads results/summary.csv (+ the v1 backup summary_v1_before_clean.csv for the
-before/after-cleaning comparison), results/winners.json (auto-selected winners, so the
+Reads results/summary.csv, results/winners.json (auto-selected winners, so the
 report never hard-codes them), results/cleaning_stats.json, and the three plots in
 results/, then writes results/BaoCao_TinyML_ECG.docx. Run from repo root:
     ./env/bin/python3.10 tools/make_report.py
@@ -18,7 +17,6 @@ from docx.shared import Inches, Pt, RGBColor
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "results"
 SUMMARY = RESULTS / "summary.csv"
-SUMMARY_V1 = RESULTS / "summary_v1_before_clean.csv"
 WINNERS = RESULTS / "winners.json"
 CLEAN_STATS = RESULTS / "cleaning_stats.json"
 OUT = RESULTS / "BaoCao_TinyML_ECG.docx"
@@ -124,9 +122,9 @@ def set_cell(cell, text, size=8.5, bold=False, fill=None):
 
 
 # ---------- build report ----------
-def section_data_cleaning(doc, rows, by_key, v1_by_key, within, clean):
-    """Section 2: dataset + the (legitimate, no-leakage) cleaning applied before training,
-    with a before/after table. All numbers come from cleaning_stats.json / the two CSVs."""
+def section_data_cleaning(doc, rows, by_key, within, clean):
+    """Section 2: dataset + the (legitimate, no-leakage) cleaning pipeline applied before training.
+    All numbers come from cleaning_stats.json / summary.csv."""
     heading(doc, "2. Dữ liệu và làm sạch dữ liệu", 1)
     para(doc,
          "Dữ liệu là MIT-BIH Arrhythmia DB (PhysioNet, 360 Hz, 2 chuyển đạo). Mỗi mẫu là "
@@ -169,32 +167,6 @@ def section_data_cleaning(doc, rows, by_key, v1_by_key, within, clean):
                 f"{test_drop} nhịp — bằng chứng KHÔNG cherry-pick tập test.",
            "4. Lọc nhịp nhiễu (signal-based): ")
 
-    # before/after table for each family's (new) winner
-    heading(doc, "2.1. Tác động: precision @ recall 0.95 trước/sau làm sạch", 2)
-    t = doc.add_table(rows=1, cols=5)
-    t.style = "Table Grid"; t.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for j, name in enumerate(["Mô hình thắng (mỗi họ)", "Trước (v1)", "Sau (v2)", "Δ", "rec. triển khai (v2)"]):
-        set_cell(t.rows[0].cells[j], name, size=9, bold=True)
-    style_header_row(t.rows[0])
-    for fam in ["rf", "svm", "cnn", "lstm"]:
-        size = within.get(fam)
-        if not size:
-            continue
-        v2 = by_key.get((fam, size)); v1 = v1_by_key.get((fam, size))
-        p2 = float(v2["precision_op"]); s2 = float(v2.get("precision_op_std") or 0.0)
-        p1 = float(v1["precision_op"]) if v1 else float("nan")
-        d = p2 - p1
-        cells = t.add_row().cells
-        vals = [f"{FAM_LABEL[fam]}/{size}", fnum(p1, 3) if v1 else "—",
-                f"{p2:.3f}±{s2:.2f}", f"{d:+.3f}" if v1 else "—", fnum(v2["recall_deploy"], 3)]
-        for j, v in enumerate(vals):
-            set_cell(cells[j], v, size=8.5)
-    para(doc, "“Trước (v1)” = cùng cấu hình train trên dữ liệu CHƯA làm sạch (single-run); "
-              "“Sau (v2)” = trung bình ± std trên nhiều seed sau làm sạch. Phần lớn Δ nằm trong "
-              "dải nhiễu seed của CNN/LSTM — cho thấy tác động chính của làm sạch là sửa lỗi "
-              "(lead/RR) chứ không phải thổi phồng chất lượng.", italic=True, size=9.5,
-         color=GREY, space_after=10)
-
 
 def ensure_beat_figures():
     """Section 6.2 embeds two illustrative beat figures rendered from MIT-BIH by
@@ -218,7 +190,6 @@ def main():
     ensure_beat_figures()
     rows = load_rows()
     by_key = {(r["family"], r["size"]): r for r in rows}
-    v1_by_key = {(r["family"], r["size"]): r for r in load_rows(SUMMARY_V1)}
     within, cross = load_winners()
     clean = load_clean_stats()
 
@@ -297,7 +268,7 @@ def main():
                 f"{pmin:.2f}–{pmax:.2f} tại recall 0.95.", "3 phát hiện chính: ")
 
     # ===== 2. Dữ liệu & làm sạch =====
-    section_data_cleaning(doc, rows, by_key, v1_by_key, within, clean)
+    section_data_cleaning(doc, rows, by_key, within, clean)
 
     # ===== 3. Phương pháp =====
     heading(doc, "3. Phương pháp lựa chọn mô hình", 1)
