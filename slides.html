@@ -29,13 +29,11 @@ body{
 /* ---------- deck scroller ---------- */
 .deck{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scroll-padding:0}
 .deck::-webkit-scrollbar{width:0}
-.stage{min-height:100vh;display:grid;place-items:center;scroll-snap-align:center;padding:3.2vh 2vw}
+.stage{height:100vh;scroll-snap-align:start;padding:0}
 .slide{
-  position:relative;width:min(1180px,94vw);aspect-ratio:16/9;
+  position:relative;width:100%;height:100vh;
   container-type:size;
-  background:var(--white);border:1px solid var(--line);
-  border-radius:20px;overflow:hidden;
-  box-shadow:0 24px 60px -28px rgba(11,45,52,.45),0 2px 0 rgba(255,255,255,.6) inset;
+  background:var(--white);overflow:hidden;
 }
 /* faint ECG-paper grid inside every slide */
 .slide::before{
@@ -67,11 +65,11 @@ body{
 
 /* ---------- text bits ---------- */
 ul.pts{list-style:none;display:flex;flex-direction:column;gap:2.1cqh;justify-content:center}
-ul.pts li{position:relative;padding-left:3.4cqw;font-size:2.45cqh;line-height:1.35;color:#243640}
-ul.pts li::before{content:"";position:absolute;left:0;top:.55cqh;width:1.5cqw;height:1.5cqw;
+ul.pts li{position:relative;padding-left:1.5em;font-size:2.45cqh;line-height:1.35;color:#243640}
+ul.pts li::before{content:"";position:absolute;left:0;top:.465em;width:.42em;height:.42em;
   border-radius:50%;background:var(--ac,var(--teal))}
-ul.pts li.sub2{padding-left:5cqw;font-size:2.1cqh;color:var(--muted)}
-ul.pts li.sub2::before{left:1.6cqw;top:.7cqh;width:1cqw;height:1cqw;background:none;border:1.5px solid var(--faint)}
+ul.pts li.sub2{padding-left:2.7em;font-size:2.1cqh;color:var(--muted)}
+ul.pts li.sub2::before{left:1.2em;top:.49em;width:.38em;height:.38em;background:none;border:1.5px solid var(--faint)}
 li b{font-weight:600;color:var(--ink)}
 .tag-win{color:var(--green);font-weight:600}
 .tag-warn{color:var(--amber);font-weight:600}
@@ -82,6 +80,14 @@ li b{font-weight:600;color:var(--ink)}
 .panel{background:var(--paper);border:1px solid var(--line);border-radius:1.8cqh;padding:3cqh 2.6cqw;display:flex;flex-direction:column}
 .panel h4{font-family:"JetBrains Mono",monospace;font-size:1.9cqh;letter-spacing:.1em;text-transform:uppercase;
   color:var(--ac,var(--teal));font-weight:700;margin-bottom:1.8cqh}
+.remarks{align-self:start;padding-top:.6cqh}
+.remarks h4{font-family:"JetBrains Mono",monospace;font-size:1.85cqh;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ac,var(--teal));font-weight:700;margin-bottom:1.6cqh}
+.remarks ul{list-style:none;display:flex;flex-direction:column;gap:1.7cqh;max-width:92cqw}
+.remarks li{position:relative;padding-left:1.55em;font-size:2.15cqh;line-height:1.35;color:#243640}
+.remarks li::before{content:"";position:absolute;left:.1em;top:.465em;width:.42em;height:.42em;
+  border-radius:50%;background:var(--ac,var(--teal))}
+.remarks li b{font-weight:700}
 .chip{display:inline-flex;align-items:center;gap:.6cqw;font-family:"JetBrains Mono",monospace;font-weight:700;
   font-size:2cqh;color:#fff;background:var(--ac,var(--teal));border-radius:.8cqh;padding:.5cqh 1.4cqw;width:max-content}
 
@@ -100,6 +106,28 @@ li b{font-weight:600;color:var(--ink)}
 .tbl tbody tr:nth-child(odd){background:var(--paper)}
 .tbl tr.win td{background:#DDF3EC;color:var(--green);font-weight:700}
 .tbl th:first-child{border-top-left-radius:1cqh}.tbl th:last-child{border-top-right-radius:1cqh}
+
+/* ---------- process step → reason list ---------- */
+.proc{flex:1;display:flex;flex-direction:column;gap:.9cqh;margin-top:2.2cqh;min-height:0}
+.prow{flex:1 1 0;min-height:0;display:grid;grid-template-columns:46% 54%;gap:0 2.6cqw;align-items:center;
+  border-left:3px solid var(--c,var(--teal));border-radius:0 .8cqh .8cqh 0;
+  padding:.7cqh 1.6cqw;background:linear-gradient(90deg,color-mix(in srgb,var(--c,var(--teal)) 7%,transparent),transparent 70%)}
+.prow.phead{flex:none;border-left:none;background:none;padding:0 1.6cqw .2cqh;align-items:end}
+.prow.phead>div{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.55cqh;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--faint)}
+.pstep{display:flex;align-items:center;gap:1.1cqw}
+.pn{flex:none;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.7cqh;color:#fff;
+  background:var(--c,var(--teal));border-radius:.5cqh;padding:.35cqh .8cqw}
+.pt{font-weight:700;font-size:1.95cqh;color:#243640;line-height:1.15}
+.pd{font-family:"JetBrains Mono",monospace;font-size:1.4cqh;color:var(--muted);margin-top:.3cqh;line-height:1.2}
+.pwhy{font-size:1.65cqh;color:var(--muted);line-height:1.3}
+.pwhy b{color:#243640;font-weight:700}
+
+/* ---------- dataset split (train / val / test) ---------- */
+.splitfig{display:flex;flex-direction:column;align-items:center;gap:1.6cqh}
+.splitfig figcaption{font-size:1.6cqh;color:var(--muted);font-style:italic;text-align:center}
+.splitlead{font-size:2.1cqh;line-height:1.4;color:var(--muted)}
+.splitlead b{color:#243640;font-weight:700}
 
 /* ---------- figure ---------- */
 .fig{display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%;min-height:0}
@@ -160,15 +188,7 @@ li b{font-weight:600;color:var(--ink)}
 .is-active .rise{opacity:1;transform:none}
 .d1{transition-delay:.05s}.d2{transition-delay:.18s}.d3{transition-delay:.31s}.d4{transition-delay:.44s}.d5{transition-delay:.57s}
 
-/* ---------- progress rail + counter ---------- */
-.rail-nav{position:fixed;right:1.4vw;top:50%;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:9px}
-.rail-nav button{width:11px;height:11px;border-radius:50%;border:1.5px solid #9bb2b7;background:transparent;cursor:pointer;padding:0;transition:.25s}
-.rail-nav button.on{background:var(--teal);border-color:var(--teal);transform:scale(1.35)}
-.counter{position:fixed;left:1.5vw;bottom:1.6vh;z-index:50;font-family:"JetBrains Mono",monospace;font-weight:700;
-  font-size:14px;color:var(--teal);background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 12px;box-shadow:0 6px 18px -8px rgba(0,0,0,.3)}
-.counter b{color:var(--ink)}
-.fsbtn{position:fixed;right:1.5vw;bottom:1.6vh;z-index:50;font-family:"JetBrains Mono",monospace;font-size:12px;
-  color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 11px;cursor:pointer}
+/* ---------- progress rail ---------- */
 .toprog{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--teal),var(--cyan));z-index:60;width:0;transition:width .25s}
 
 /* member cards */
@@ -193,6 +213,21 @@ li b{font-weight:600;color:var(--ink)}
 /* schematic svg box */
 .diagram{display:grid;place-items:center;height:100%}
 .diagram svg{width:100%;height:auto;max-height:100%}
+
+/* ---------- model design spec sheet (thiết kế) — aligned label/value rows ---------- */
+.spec{align-self:center;width:100%;display:flex;flex-direction:column}
+.spec .srow{display:grid;grid-template-columns:13.5cqw 1fr;gap:0 1.9cqw;align-items:baseline;
+  padding:1.45cqh 0;border-bottom:1px solid var(--line)}
+.spec .srow:first-child{padding-top:0}
+.spec .srow:last-child{border-bottom:none;padding-bottom:0}
+.spec .sk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.5cqh;letter-spacing:.03em;
+  text-transform:uppercase;color:var(--ac,var(--teal));line-height:1.25;padding-top:.4cqh}
+.spec .sv{font-size:1.92cqh;line-height:1.36;color:#243640}
+.spec .sv b{font-weight:700;color:var(--ink)}
+.spec .sv .em{color:var(--ac,var(--teal));font-weight:700}
+.spec .sv code{font-family:"JetBrains Mono",monospace;font-size:1.66cqh;background:var(--paper);
+  border:1px solid var(--line);border-radius:.4cqh;padding:.05cqh .5cqw;color:var(--ink)}
+.spec .srow.lead .sv{font-size:2.15cqh;line-height:1.32;color:var(--ink);font-weight:600}
 
 /* ===== geometric blocks: bối cảnh / ràng buộc / phương pháp ===== */
 /* vertical pipeline (bối cảnh) */
@@ -221,19 +256,46 @@ li b{font-weight:600;color:var(--ink)}
 .ccard .why{font-size:1.84cqh;line-height:1.32;color:#243640}
 .ccard .why b{font-weight:600;color:var(--ink)}
 
-/* method: model family row + arrow + pipeline (phương pháp) */
-.mwrap{display:flex;flex-direction:column;justify-content:center;height:100%;gap:2.4cqh}
-.mlabel{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.7cqh;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:1cqw}
-.mlabel::after{content:"";flex:1;height:1px;background:var(--line)}
-.mfam{display:grid;grid-template-columns:repeat(4,1fr);gap:1.4cqw}
-.fcard{background:var(--white);border:1px solid var(--line);border-radius:1.3cqh;padding:1.9cqh 1cqw;text-align:center;
-  border-top:.6cqh solid var(--fc);box-shadow:0 12px 26px -22px rgba(11,45,52,.5)}
-.fcard .fi{width:5.2cqh;height:5.2cqh;margin:0 auto 1.1cqh;border-radius:1cqh;display:grid;place-items:center;
-  color:var(--fc);background:color-mix(in srgb,var(--fc) 13%,#fff)}
-.fcard .fi svg{width:3cqh;height:3cqh;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.fcard .fn{font-weight:700;font-size:2.05cqh}
-.fcard .fk{color:var(--muted);font-size:1.55cqh;margin-top:.35cqh;line-height:1.2}
+/* method: candidates → selection funnel → winner (phương pháp) */
+.approach{flex:1;display:grid;grid-template-columns:.95fr auto 1.3fr;align-items:center;
+  gap:2.2cqw;margin-top:2.6cqh;min-height:0}
+.apcol{display:flex;flex-direction:column;gap:1.4cqh;min-width:0}
+.aphd{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.5cqh;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:.8cqw}
+.aphd .apk{background:var(--ac);color:#fff;border-radius:.5cqh;padding:.35cqh .8cqw;letter-spacing:.07em}
+/* input pool: 4 candidate model families */
+.pool{display:flex;flex-direction:column;gap:1.6cqh}
+.pchip{display:flex;align-items:center;gap:1cqw;background:var(--white);border:1px solid var(--line);
+  border-left:.5cqh solid var(--c);border-radius:1cqh;padding:1.55cqh 1.1cqw;
+  box-shadow:0 10px 22px -20px rgba(11,45,52,.5)}
+.pchip .pico{width:4cqh;height:4cqh;flex:none;border-radius:.85cqh;display:grid;place-items:center;
+  color:var(--c);background:color-mix(in srgb,var(--c) 14%,#fff)}
+.pchip .pico svg{width:2.5cqh;height:2.5cqh;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pchip .pnm{font-weight:700;font-size:1.95cqh;line-height:1.1}
+.pchip .pkk{color:var(--muted);font-size:1.4cqh;margin-top:.15cqh;line-height:1.2}
+/* funnel connector */
+.apflow{display:flex;flex-direction:column;align-items:center;gap:1cqh}
+.apflow svg{width:3.2cqw;height:3.2cqw;fill:none;stroke:var(--ac);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+/* selection gates */
+.gates{display:flex;flex-direction:column;gap:1.3cqh}
+.gate{display:flex;align-items:center;gap:1.1cqw;background:var(--white);border:1px solid var(--line);
+  border-radius:1cqh;padding:1.5cqh 1.2cqw}
+.gate .gno{flex:none;width:3.3cqh;height:3.3cqh;border-radius:50%;background:var(--c);color:#fff;
+  font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.7cqh;display:grid;place-items:center}
+.gate .gt{font-weight:700;font-size:1.9cqh;line-height:1.15}
+.gate .gd{color:var(--muted);font-size:1.5cqh;line-height:1.25;margin-top:.1cqh}
+.gate .gd b{color:var(--ink);font-weight:600}
+.gateconn{align-self:center;color:var(--faint);font-size:2cqh;line-height:.4;margin:-.2cqh 0}
+/* winner — the focal point */
+.winner{display:flex;align-items:center;gap:1.3cqw;margin-top:.6cqh;
+  background:linear-gradient(100deg,color-mix(in srgb,var(--green) 15%,#fff),#fff);
+  border:1.5px solid var(--green);border-radius:1.3cqh;padding:2cqh 1.5cqw;
+  box-shadow:0 18px 30px -20px color-mix(in srgb,var(--green) 75%,transparent)}
+.winner .wtr{flex:none;width:4.8cqh;height:4.8cqh;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center}
+.winner .wtr svg{width:2.8cqh;height:2.8cqh;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.winner .wlab{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.5cqh;letter-spacing:.12em;color:var(--green);text-transform:uppercase}
+.winner .wrule{font-weight:600;font-size:2.05cqh;line-height:1.2;color:var(--ink);margin-top:.25cqh}
+.winner .wrule b{color:var(--green);font-weight:700}
 
 /* vertical member list + model illustration (thành viên) */
 .mlist{display:flex;flex-direction:column;justify-content:center;gap:1.7cqh;height:100%}
@@ -272,12 +334,8 @@ li b{font-weight:600;color:var(--ink)}
 <section class="stage"><div class="slide hero" style="--ac:var(--cyan)">
   <span class="rail"></span>
   <div class="pad">
-    <div class="kick rise d1">Đồ án TinyML · Học máy trên thiết bị nhúng</div>
     <h1 class="rise d2">Phát hiện bất thường<br>nhịp tim ECG <em>trên ESP32</em></h1>
     <div class="line rise d3">Random Forest · SVM · 1D-CNN · LSTM &nbsp;—&nbsp; MIT-BIH Arrhythmia DB</div>
-    <div class="badges rise d4">
-      <span>24 mô hình</span><span>5 seed / cấu hình</span><span>parity 1.0000</span><span>≤ 100 ms / nhịp</span>
-    </div>
   </div>
   <div class="ecg-wrap">
     <svg class="ecg" viewBox="0 0 1750 200" preserveAspectRatio="none">
@@ -353,9 +411,9 @@ li b{font-weight:600;color:var(--ink)}
       <div class="ccard rise d3" style="--cc:var(--teal)">
         <div class="ctop">
           <div class="cic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
-          <div><div class="cv">≤ 1 MB</div><div class="cn">dung lượng flash / mô hình</div></div>
+          <div><div class="cv">≤ 2 MB</div><div class="cn">flash / 1 mô hình triển khai</div></div>
         </div>
-        <div class="why"><b>Vì sao:</b> ESP32 chỉ có ~4 MB flash chia cho firmware và nhiều mô hình — trọng số phải đủ nhỏ để nhúng cùng nhau.</div>
+        <div class="why"><b>Vì sao:</b> Triển khai thật chỉ nạp <b>1 mô hình</b>: 4 MB flash, trừ firmware/runtime còn ~2 MB cho trọng số. Lan can an toàn — không bao giờ chạm tới (model nặng nhất chỉ 1 MB). <b>Ràng buộc thật là tốc độ tính toán.</b></div>
       </div>
       <div class="ccard rise d3" style="--cc:var(--amber)">
         <div class="ctop">
@@ -369,7 +427,7 @@ li b{font-weight:600;color:var(--ink)}
           <div class="cic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></div>
           <div><div class="cv">Recall ≥ 0.95</div><div class="cn">độ nhạy lâm sàng</div></div>
         </div>
-        <div class="why"><b>Vì sao:</b> trong y tế, <b>bỏ sót</b> ca bệnh nguy hiểm hơn báo nhầm — ưu tiên độ nhạy, rồi mới tối đa <b>precision</b>.</div>
+        <div class="why"><b>Vì sao:</b> trong y tế, <b>bỏ sót</b> ca bệnh nguy hiểm hơn báo nhầm — ưu tiên độ nhạy, rồi mới tối đa <b>precision</b>. Ngưỡng còn phải giữ <b>recall ≥ 0.9 trên tập test</b> (bệnh nhân lạ) thì mô hình mới được chọn.</div>
       </div>
     </div>
   </div>
@@ -382,35 +440,45 @@ li b{font-weight:600;color:var(--ink)}
   <div class="pad">
     <div class="eyebrow rise d1"><span class="ph">01</span> Vấn đề · 3 / 3</div>
     <h2 class="title rise d1">Phương pháp <span class="hl">tiếp cận</span></h2>
-    <div class="mwrap">
-      <div class="rise d2">
-        <div class="mlabel">Bước 1 — Thiết kế 4 họ mô hình</div>
-        <div class="mfam" style="margin-top:1.8cqh">
-          <div class="fcard" style="--fc:var(--teal)">
-            <div class="fi"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M10.6 6.8 7.4 15.7M13.4 6.8l3.2 8.9"/></svg></div>
-            <div class="fn">Random Forest</div><div class="fk">21 đặc trưng thủ công</div>
+    <div class="approach">
+      <!-- input pool: 4 candidate model families -->
+      <div class="apcol rise d2">
+        <div class="aphd"><span class="apk">Thiết kế</span> 4 họ mô hình ứng viên</div>
+        <div class="pool">
+          <div class="pchip" style="--c:var(--teal)">
+            <span class="pico"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M10.6 6.8 7.4 15.7M13.4 6.8l3.2 8.9"/></svg></span>
+            <div><div class="pnm">Random Forest</div><div class="pkk">21 đặc trưng thủ công</div></div>
           </div>
-          <div class="fcard" style="--fc:var(--blue)">
-            <div class="fi"><svg viewBox="0 0 24 24"><path d="M3 21 21 3"/><circle cx="7" cy="7" r="1.5"/><circle cx="6" cy="12" r="1.5"/><circle cx="17" cy="17" r="1.5"/><circle cx="13" cy="18" r="1.5"/></svg></div>
-            <div class="fn">SVM</div><div class="fk">siêu phẳng tối ưu lề</div>
+          <div class="pchip" style="--c:var(--blue)">
+            <span class="pico"><svg viewBox="0 0 24 24"><path d="M3 21 21 3"/><circle cx="7" cy="7" r="1.5"/><circle cx="6" cy="12" r="1.5"/><circle cx="17" cy="17" r="1.5"/><circle cx="13" cy="18" r="1.5"/></svg></span>
+            <div><div class="pnm">SVM</div><div class="pkk">siêu phẳng tối ưu lề</div></div>
           </div>
-          <div class="fcard" style="--fc:var(--cyan)">
-            <div class="fi"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><rect x="9" y="9" width="6" height="6" fill="currentColor" stroke="none" opacity=".5"/></svg></div>
-            <div class="fn">1D CNN</div><div class="fk">nhịp thô 200 mẫu</div>
+          <div class="pchip" style="--c:var(--cyan)">
+            <span class="pico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><rect x="9" y="9" width="6" height="6" fill="currentColor" stroke="none" opacity=".5"/></svg></span>
+            <div><div class="pnm">1D CNN</div><div class="pkk">nhịp thô 200 mẫu</div></div>
           </div>
-          <div class="fcard" style="--fc:var(--amber)">
-            <div class="fi"><svg viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="9" rx="2"/><path d="M9 12.5h5M13 10.5l2 2-2 2"/><path d="M8 8V5.5a2 2 0 0 1 2-2h5"/></svg></div>
-            <div class="fn">LSTM</div><div class="fk">chuỗi thời gian 100 bước</div>
+          <div class="pchip" style="--c:var(--amber)">
+            <span class="pico"><svg viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="9" rx="2"/><path d="M9 12.5h5M13 10.5l2 2-2 2"/><path d="M8 8V5.5a2 2 0 0 1 2-2h5"/></svg></span>
+            <div><div class="pnm">LSTM</div><div class="pkk">chuỗi thời gian 100 bước</div></div>
           </div>
         </div>
       </div>
-      <div class="rise d3">
-        <div class="mlabel">Bước 2 — So sánh &amp; đánh giá công bằng</div>
-        <div class="steps" style="margin-top:1.8cqh">
-          <div class="step" style="--ac:var(--teal)"><div class="no">1</div><div class="ti">Quét dung lượng</div><div class="de">~6 mức/họ × 5 seed → báo cáo mean ± std</div></div>
-          <div class="step" style="--ac:var(--blue)"><div class="no">2</div><div class="ti">Điểm vận hành</div><div class="de">chỉnh ngưỡng trên DS1-val để đạt recall ≥ 0.95</div></div>
-          <div class="step" style="--ac:var(--amber)"><div class="no">3</div><div class="ti">Lọc khả thi</div><div class="de">latency ≤ 100 ms · flash ≤ 1 MB · RAM vừa</div></div>
-          <div class="step" style="--ac:var(--green)"><div class="no">4</div><div class="ti">Chọn winner</div><div class="de">max precision @ recall 0.95 trong nhóm khả thi</div></div>
+      <!-- funnel connector -->
+      <div class="apflow rise d3">
+        <svg viewBox="0 0 24 24"><path d="M3 12h16M13 6l6 6-6 6"/></svg>
+      </div>
+      <!-- selection pipeline → winner -->
+      <div class="apcol rise d3">
+        <div class="aphd"><span class="apk">Tuyển chọn</span> quy trình đánh giá công bằng</div>
+        <div class="gates">
+          <div class="gate" style="--c:var(--teal)"><span class="gno">1</span><div><div class="gt">Quét dung lượng</div><div class="gd">~6 mức/họ × 5 seed → báo cáo mean ± std</div></div></div>
+          <div class="gate" style="--c:var(--blue)"><span class="gno">2</span><div><div class="gt">Điểm vận hành</div><div class="gd">chỉnh ngưỡng trên DS1-val → recall ≥ <b>0.95</b></div></div></div>
+          <div class="gate" style="--c:var(--amber)"><span class="gno">3</span><div><div class="gt">Lọc khả thi</div><div class="gd"><b>latency ≤ 100 ms</b> · flash/RAM luôn dư · recall test ≥ <b>0.9</b></div></div></div>
+        </div>
+        <div class="gateconn">↓</div>
+        <div class="winner">
+          <span class="wtr"><svg viewBox="0 0 24 24"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/><path d="M12 13v3M8.5 20h7M10 20l.5-4M14 20l-.5-4"/></svg></span>
+          <div><div class="wlab">Winner</div><div class="wrule"><b>Precision cao nhất</b> @ recall 0.95 trong nhóm khả thi</div></div>
         </div>
       </div>
     </div>
@@ -427,8 +495,8 @@ li b{font-weight:600;color:var(--ink)}
     <div class="body cols-5050 vmid">
       <div class="rise d2">
         <div class="mlist">
-          <div class="mrow" style="--ac:var(--teal)"><span class="mbadge">RF</span><div><div class="mnm">Nguyễn Minh Hiếu</div><div class="mrl">Random Forest</div></div></div>
-          <div class="mrow" style="--ac:var(--blue)"><span class="mbadge">SVM</span><div><div class="mnm">Hàn Kim Trường</div><div class="mrl">Support Vector Machine</div></div></div>
+          <div class="mrow" style="--ac:var(--teal)"><span class="mbadge">RF</span><div><div class="mnm">Hàn Kim Trường</div><div class="mrl">Random Forest</div></div></div>
+          <div class="mrow" style="--ac:var(--blue)"><span class="mbadge">SVM</span><div><div class="mnm">Nguyễn Minh Hiếu</div><div class="mrl">Support Vector Machine</div></div></div>
           <div class="mrow" style="--ac:var(--cyan)"><span class="mbadge">CNN</span><div><div class="mnm">Tạ Đình Thiện</div><div class="mrl">1D Convolutional NN</div></div></div>
           <div class="mrow" style="--ac:var(--amber)"><span class="mbadge">LSTM</span><div><div class="mnm">Nguyễn Huy Vũ</div><div class="mrl">LSTM Recurrent NN</div></div></div>
         </div>
@@ -633,123 +701,92 @@ li b{font-weight:600;color:var(--ink)}
   <div class="foot"><span>TinyML ECG · ESP32</span><span></span></div>
 </div></section>
 
-<!-- ============ 6 · LÀM SẠCH ============ -->
+<!-- ============ 6 · XỬ LÝ DATASET ============ -->
 <section class="stage"><div class="slide" style="--ac:var(--blue)">
   <span class="rail"></span>
   <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">02</span> Dữ liệu · 2 / 3</div>
-    <h2 class="title rise d1">Làm sạch dữ liệu — <span class="hl">không dùng nhãn</span></h2>
-    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1.8cqh 3.5cqw;margin-top:2.8cqh">
-
-      <!-- 1: Lead selection -->
-      <div class="rise d2" style="border-top:2.5px solid var(--blue);padding-top:1.3cqh">
-        <div style="display:flex;align-items:center;gap:1cqw;margin-bottom:1.2cqh">
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.7cqh;background:var(--blue);color:#fff;border-radius:.5cqh;padding:.3cqh .7cqw">01</span>
-          <span style="font-weight:700;font-size:2cqh">Chọn lead MLII theo tên kênh</span>
-        </div>
-        <svg viewBox="0 0 300 72" style="width:100%">
-          <!-- V5 side (wrong) -->
-          <text x="5" y="13" font-family="JetBrains Mono" font-size="10" font-weight="700" fill="#E5484D">V5 ✕</text>
-          <path fill="none" stroke="#E5484D" stroke-width="1.8" opacity=".7" stroke-linecap="round"
-            d="M5,38 l8,-6 l5,10 l4,-4 l3,8 l6,-14 l5,6 l4,-3 l6,9 l3,-12 l5,5 l7,-8 l4,14 l5,-4 l8,3 l4,-7 l6,5 l5,-9 l4,3 l6,11 l4,-5"/>
-          <!-- MLII side (correct) -->
-          <text x="160" y="13" font-family="JetBrains Mono" font-size="10" font-weight="700" fill="#2E9E6B">MLII ✓</text>
-          <path fill="none" stroke="#2E9E6B" stroke-width="1.8" stroke-linecap="round"
-            d="M155,45 l22,0 C185,45 188,32 195,32 C202,32 205,45 212,45 l8,0 l4,8 l5,-38 l5,46 l4,-16 l6,0 l18,0 C270,45 275,25 284,25 C293,25 296,45 300,45"/>
-          <!-- divider -->
-          <line x1="148" y1="5" x2="148" y2="70" stroke="#DBE7EA" stroke-width="1" stroke-dasharray="3 3"/>
-        </svg>
-        <div style="font-size:1.65cqh;color:var(--muted);margin-top:.8cqh">Rec 114: kênh 0 là V5, không phải MLII — chọn theo <b style="color:#243640">tên</b>, không theo số thứ tự</div>
+    <div class="eyebrow rise d1"><span class="ph">02</span> Dữ liệu · 2 / 4</div>
+    <h2 class="title rise d1">Xử lý dataset — <span class="hl">quy trình &amp; lý do</span></h2>
+    <div class="proc rise d2">
+      <!-- header -->
+      <div class="prow phead">
+        <div>Bước xử lý &nbsp;<span style="font-weight:500;color:var(--muted)">(thứ tự từ trên xuống)</span></div>
+        <div>Lý do thiết kế</div>
       </div>
 
-      <!-- 2: RR between real beats -->
-      <div class="rise d2" style="border-top:2.5px solid var(--teal);padding-top:1.3cqh">
-        <div style="display:flex;align-items:center;gap:1cqw;margin-bottom:1.2cqh">
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.7cqh;background:var(--teal);color:#fff;border-radius:.5cqh;padding:.3cqh .7cqw">02</span>
-          <span style="font-weight:700;font-size:2cqh">RR đo giữa nhịp thật</span>
-        </div>
-        <svg viewBox="0 0 300 72" style="width:100%">
-          <!-- baseline -->
-          <line x1="0" y1="52" x2="300" y2="52" stroke="#DBE7EA" stroke-width="1"/>
-          <!-- Beat 1: R-peak at x=40 -->
-          <path fill="none" stroke="#2F6FB5" stroke-width="2" stroke-linecap="round"
-            d="M10,52 l22,0 l3,7 l5,-38 l5,44 l5,-14 l10,0"/>
-          <!-- Non-beat marker at x=155 -->
-          <text x="148" y="42" font-family="JetBrains Mono" font-size="13" font-weight="700" fill="#DD8413">+</text>
-          <text x="140" y="68" font-family="Be Vietnam Pro" font-size="9" fill="#DD8413">phi-nhịp</text>
-          <!-- Beat 2: R-peak at x=245 -->
-          <path fill="none" stroke="#2F6FB5" stroke-width="2" stroke-linecap="round"
-            d="M190,52 l22,0 l3,7 l5,-38 l5,44 l5,-14 l10,0 l50,0"/>
-          <!-- Wrong RR arrow: beat1 → non-beat marker (red) -->
-          <line x1="47" y1="18" x2="153" y2="18" stroke="#E5484D" stroke-width="1.4" stroke-dasharray="4 2" marker-end="url(#arr-red)"/>
-          <text x="85" y="14" font-family="JetBrains Mono" font-size="9" fill="#E5484D">RR sai ✕</text>
-          <!-- Correct RR arrow: beat1 → beat2 (teal) -->
-          <defs>
-            <marker id="arr-red" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#E5484D" stroke-width="1"/></marker>
-            <marker id="arr-teal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#0E8A8F" stroke-width="1"/></marker>
-          </defs>
-          <line x1="47" y1="27" x2="243" y2="27" stroke="#0E8A8F" stroke-width="1.6" marker-end="url(#arr-teal)"/>
-          <text x="115" y="23" font-family="JetBrains Mono" font-size="9" fill="#0E8A8F">RR đúng ✓</text>
-        </svg>
-        <div style="font-size:1.65cqh;color:var(--muted);margin-top:.8cqh">Loại ~4.2% khoảng RR nhiễu do mốc phi-nhịp (chú thích kỹ thuật) chen giữa hai R-peak thật</div>
+      <!-- 1: lead by name -->
+      <div class="prow" style="--c:var(--blue)">
+        <div class="pstep"><span class="pn">01</span><div><div class="pt">Chọn lead MLII theo tên kênh</div><div class="pd">đọc header .hea · không lấy mặc định kênh 0</div></div></div>
+        <div class="pwhy">Rec 114 có <b>V5</b> ở kênh 0 — chọn theo tên tránh trộn nhầm một lead khác vào toàn bộ dataset</div>
       </div>
-
-      <!-- 3: R-peak realignment -->
-      <div class="rise d3" style="border-top:2.5px solid var(--cyan);padding-top:1.3cqh">
-        <div style="display:flex;align-items:center;gap:1cqw;margin-bottom:1.2cqh">
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.7cqh;background:var(--cyan);color:#fff;border-radius:.5cqh;padding:.3cqh .7cqw">03</span>
-          <span style="font-weight:700;font-size:2cqh">Căn lại R-peak (±15 mẫu)</span>
-        </div>
-        <svg viewBox="0 0 300 72" style="width:100%">
-          <!-- Before: window off-center -->
-          <text x="5" y="11" font-family="JetBrains Mono" font-size="9" fill="#E5484D">trước ✕</text>
-          <path fill="none" stroke="#8499A1" stroke-width="1.8" stroke-linecap="round"
-            d="M10,50 l18,0 C35,50 38,35 44,35 C50,35 52,50 58,50 l4,0 l3,6 l5,-40 l4,46 l3,-12 l30,0"/>
-          <!-- Window rect: shifted left, peak sticks out right -->
-          <rect x="12" y="10" width="52" height="48" fill="none" stroke="#E5484D" stroke-width="1.4" stroke-dasharray="3 2" rx="2"/>
-          <!-- actual peak indicator -->
-          <line x1="71" y1="10" x2="71" y2="58" stroke="#E5484D" stroke-width="1" stroke-dasharray="2 2" opacity=".6"/>
-          <!-- After: window centered -->
-          <text x="165" y="11" font-family="JetBrains Mono" font-size="9" fill="#2E9E6B">sau ✓</text>
-          <path fill="none" stroke="#2F6FB5" stroke-width="1.8" stroke-linecap="round"
-            d="M155,50 l18,0 C180,50 183,35 189,35 C195,35 197,50 203,50 l4,0 l3,6 l5,-40 l4,46 l3,-12 l30,0"/>
-          <!-- Window rect: centered on peak -->
-          <rect x="181" y="10" width="52" height="48" fill="none" stroke="#2E9E6B" stroke-width="1.4" rx="2"/>
-          <!-- centered peak indicator -->
-          <line x1="207" y1="10" x2="207" y2="58" stroke="#2E9E6B" stroke-width="1" stroke-dasharray="2 2" opacity=".6"/>
-          <!-- arrow between before/after -->
-          <text x="133" y="39" font-size="16" fill="#0E8A8F">→</text>
-        </svg>
-        <div style="font-size:1.65cqh;color:var(--muted);margin-top:.8cqh">Cửa sổ ±100 mẫu được căn vào đỉnh |tín hiệu| cục bộ — tránh lệch nhịp khi cắt</div>
+      <!-- 2: bandpass -->
+      <div class="prow" style="--c:var(--blue)">
+        <div class="pstep"><span class="pn">02</span><div><div class="pt">Lọc thông dải Butterworth 0.5–40 Hz</div><div class="pd">bậc 4 · filtfilt (zero-phase)</div></div></div>
+        <div class="pwhy">Loại <b>trôi đường nền</b> (tần số thấp) và <b>nhiễu cơ / nguồn điện</b> (tần số cao) khỏi tín hiệu</div>
       </div>
+      <!-- 3: z-score -->
+      <div class="prow" style="--c:var(--blue)">
+        <div class="pstep"><span class="pn">03</span><div><div class="pt">Chuẩn hóa z-score từng bản ghi</div><div class="pd">trừ trung bình · chia độ lệch chuẩn</div></div></div>
+        <div class="pwhy">Ổn định hơn <b>min-max</b> khi so sánh biên độ giữa các bệnh nhân khác nhau</div>
+      </div>
+      <!-- 4: RR between real beats -->
+      <div class="prow" style="--c:var(--teal)">
+        <div class="pstep"><span class="pn">04</span><div><div class="pt">Tính RR giữa các nhịp thật</div><div class="pd">bỏ mốc phi-nhịp (+, ~, |, !, [ ]) trước khi đo</div></div></div>
+        <div class="pwhy">~<b>4.2%</b> khoảng RR từng bị nhiễm do chú thích phi-nhịp chen giữa hai R-peak thật</div>
+      </div>
+      <!-- 5: realign + slice -->
+      <div class="prow" style="--c:var(--teal)">
+        <div class="pstep"><span class="pn">05</span><div><div class="pt">Căn R-peak ±15 mẫu → cắt cửa sổ ±100 mẫu</div><div class="pd">200 mẫu ≈ 555 ms @ 360 Hz</div></div></div>
+        <div class="pwhy">Annotation gốc lệch khỏi đỉnh; căn vào đỉnh |tín hiệu| cục bộ — <b>dựa hình dạng, không dùng nhãn</b></div>
+      </div>
+      <!-- 6: artifact filter -->
+      <div class="prow" style="--c:var(--teal)">
+        <div class="pstep"><span class="pn">06</span><div><div class="pt">Lọc nhịp artifact vật lý</div><div class="pd">flatline (&lt;0.05 mV ptp) · clipping ADC (≥10%)</div></div></div>
+        <div class="pwhy"><b>Không dùng ngưỡng biên độ</b> → tránh vô tình loại nhịp Abnormal biên độ lớn (thiên lệch lớp)</div>
+      </div>
+      <!-- 7: feature creation per family -->
+      <div class="prow" style="--c:var(--amber)">
+        <div class="pstep"><span class="pn">07</span><div><div class="pt">Tạo đặc trưng đầu vào theo họ mô hình</div><div class="pd">RF·SVM → 21 đặc trưng tay · CNN → raw 200×1 · LSTM → 100×1</div></div></div>
+        <div class="pwhy"><b>RF/SVM</b> cần đặc trưng tay (thống kê · wavelet db4 · FFT · RR); <b>CNN/LSTM</b> học thẳng từ tín hiệu thô</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>TinyML ECG · ESP32</span><span></span></div>
+</div></section>
 
-      <!-- 4: Artifact filter -->
-      <div class="rise d3" style="border-top:2.5px solid var(--amber);padding-top:1.3cqh">
-        <div style="display:flex;align-items:center;gap:1cqw;margin-bottom:1.2cqh">
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.7cqh;background:var(--amber);color:#fff;border-radius:.5cqh;padding:.3cqh .7cqw">04</span>
-          <span style="font-weight:700;font-size:2cqh">Lọc artifact vật lý</span>
+<!-- ============ 6b · XỬ LÝ NHÃN ============ -->
+<section class="stage"><div class="slide" style="--ac:var(--blue)">
+  <span class="rail"></span>
+  <div class="pad">
+    <div class="eyebrow rise d1"><span class="ph">02</span> Dữ liệu · 3 / 4</div>
+    <h2 class="title rise d1">Xử lý nhãn — <span class="hl">gộp AAMI → nhị phân</span></h2>
+    <div class="body" style="grid-template-columns:1.45fr 1fr;gap:4cqw;align-items:center">
+
+      <!-- LEFT: AAMI → binary mapping table -->
+      <table class="tbl rise d2" style="font-size:1.92cqh">
+        <thead><tr><th>Siêu lớp AAMI</th><th>Ký hiệu gốc</th><th>Nhãn nhị phân</th></tr></thead>
+        <tbody>
+          <tr><td>N <span style="color:var(--muted)">(Normal)</span></td><td>N, L, R, e, j</td><td style="color:var(--blue);font-weight:700">0 — Bình thường</td></tr>
+          <tr><td>SVEB</td><td>A, a, J, S</td><td style="color:var(--red);font-weight:700">1 — Bất thường</td></tr>
+          <tr><td>VEB</td><td>V, E</td><td style="color:var(--red);font-weight:700">1 — Bất thường</td></tr>
+          <tr><td>F <span style="color:var(--muted)">(Fusion)</span></td><td>F</td><td style="color:var(--red);font-weight:700">1 — Bất thường</td></tr>
+          <tr><td>Q <span style="color:var(--muted)">(Unknown)</span></td><td>/, f, Q</td><td style="color:var(--red);font-weight:700">1 — Bất thường</td></tr>
+        </tbody>
+      </table>
+
+      <!-- RIGHT: rationale + junk-label handling -->
+      <div class="rise d3" style="display:flex;flex-direction:column;gap:2.4cqh">
+        <p style="font-size:2.05cqh;line-height:1.45;color:#243640;margin:0">
+          Bài toán <b>nhị phân</b>: chỉ nhóm <b>N (Normal)</b> → <b>0</b>, mọi siêu lớp loạn nhịp còn lại
+          (SVEB · VEB · F · Q) → <b>1 (Bất thường)</b>.</p>
+        <div style="border-left:4px solid var(--amber);background:#FFF5E0;border-radius:.6cqh;padding:1.6cqh 1.8cqw">
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.7cqh;color:var(--amber);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.8cqh">Nhãn rác → bỏ qua</div>
+          <p style="font-size:1.86cqh;line-height:1.4;color:#243640;margin:0">
+            Mốc <b>phi-nhịp</b> không phải một nhịp tim —
+            <code style="font-family:'JetBrains Mono',monospace;color:var(--red)">+ &nbsp;~ &nbsp;| &nbsp;! &nbsp;[ &nbsp;] &nbsp;&quot; &nbsp;x</code>
+            (đổi nhịp · chất lượng tín hiệu · artifact · rung thất…) — <b>đều bị loại</b>, không gán nhãn 0/1.</p>
         </div>
-        <svg viewBox="0 0 300 72" style="width:100%">
-          <!-- Left: flatline -->
-          <text x="20" y="11" font-family="JetBrains Mono" font-size="9" fill="#DD8413" text-anchor="middle">flatline</text>
-          <path fill="none" stroke="#DD8413" stroke-width="2" stroke-linecap="round" d="M5,45 l80,0"/>
-          <!-- red X -->
-          <line x1="95" y1="30" x2="110" y2="60" stroke="#E5484D" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="110" y1="30" x2="95" y2="60" stroke="#E5484D" stroke-width="2.2" stroke-linecap="round"/>
-          <!-- divider -->
-          <line x1="140" y1="5" x2="140" y2="70" stroke="#DBE7EA" stroke-width="1" stroke-dasharray="3 3"/>
-          <!-- Right: ADC clipping -->
-          <text x="215" y="11" font-family="JetBrains Mono" font-size="9" fill="#DD8413" text-anchor="middle">ADC clipping</text>
-          <path fill="none" stroke="#DD8413" stroke-width="2" stroke-linecap="round"
-            d="M155,45 l15,0 l5,-25 l30,0 l5,25 l15,0 l5,20 l30,0 l5,-20 l20,0"/>
-          <!-- flat caps highlight -->
-          <path fill="none" stroke="#E5484D" stroke-width="2.5"
-            d="M175,20 l30,0 M195,65 l30,0" opacity=".7"/>
-          <!-- red X -->
-          <line x1="277" y1="30" x2="292" y2="60" stroke="#E5484D" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="292" y1="30" x2="277" y2="60" stroke="#E5484D" stroke-width="2.2" stroke-linecap="round"/>
-        </svg>
-        <div style="font-size:1.65cqh;color:var(--muted);margin-top:.8cqh">Loại nhịp bị mất tín hiệu hoặc chạm trần ADC — <b style="color:#243640">không dùng ngưỡng biên độ</b> để tránh thiên lệch lớp</div>
+        <p class="sub2" style="font-size:1.78cqh">Gộp về nhị phân giúp mô hình tí hon trên ESP32 tập trung vào một câu hỏi lâm sàng: <b>bình thường hay bất thường?</b></p>
       </div>
 
     </div>
@@ -757,30 +794,49 @@ li b{font-weight:600;color:var(--ink)}
   <div class="foot"><span>TinyML ECG · ESP32</span><span></span></div>
 </div></section>
 
-<!-- ============ 7 · QUY MÔ & ĐẶC TRƯNG ============ -->
+<!-- ============ 7 · CHIA TẬP TRAIN/VAL/TEST ============ -->
 <section class="stage"><div class="slide" style="--ac:var(--blue)">
   <span class="rail"></span>
   <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">02</span> Dữ liệu · 3 / 3</div>
-    <h2 class="title rise d1">Quy mô &amp; <span class="hl">đặc trưng đầu vào</span></h2>
-    <div class="body" style="grid-template-rows:auto 1fr;gap:3cqh">
-      <div class="stats rise d2">
-        <div class="stat" style="--ac:var(--teal)"><div class="big">100,697</div><div class="lbl">nhịp đã làm sạch</div></div>
-        <div class="stat" style="--ac:var(--blue)"><div class="big">6</div><div class="lbl">nhịp artifact bị loại (Normal=6, Abnormal=0)</div></div>
-        <div class="stat" style="--ac:var(--amber)"><div class="big">~11%</div><div class="lbl">tỉ lệ nhịp bất thường</div></div>
-        <div class="stat" style="--ac:var(--green)"><div class="big">~4.2%</div><div class="lbl">khoảng RR nhiễm phi-nhịp được sửa</div></div>
+    <div class="eyebrow rise d1"><span class="ph">02</span> Dữ liệu · 4 / 4</div>
+    <h2 class="title rise d1">Chia tập <span class="hl">theo bệnh nhân</span> — train · val · test</h2>
+    <div class="body rise d2" style="grid-template-columns:42% 58%;gap:5cqw;align-items:center">
+      <!-- left: bar chart of beats per split -->
+      <figure class="splitfig">
+        <svg viewBox="0 0 440 360" style="width:100%">
+          <!-- baseline -->
+          <line x1="24" y1="310" x2="424" y2="310" stroke="var(--line)" stroke-width="1.5"/>
+          <!-- TRAIN -->
+          <rect x="44" y="95" width="86" height="215" rx="4" fill="var(--teal)"/>
+          <text x="87" y="86" text-anchor="middle" font-family="JetBrains Mono" font-size="15" font-weight="700" fill="#0B6E72">42.773</text>
+          <text x="87" y="333" text-anchor="middle" font-family="JetBrains Mono" font-size="14" font-weight="700" fill="#243640">TRAIN</text>
+          <text x="87" y="351" text-anchor="middle" font-family="Be Vietnam Pro" font-size="12" fill="#5C7079">19 bản ghi</text>
+          <!-- VAL -->
+          <rect x="181" y="269" width="86" height="41" rx="4" fill="var(--amber)"/>
+          <text x="224" y="260" text-anchor="middle" font-family="JetBrains Mono" font-size="15" font-weight="700" fill="#B56A0E">8.227</text>
+          <text x="224" y="333" text-anchor="middle" font-family="JetBrains Mono" font-size="14" font-weight="700" fill="#243640">VAL</text>
+          <text x="224" y="351" text-anchor="middle" font-family="Be Vietnam Pro" font-size="12" fill="#5C7079">3 bản ghi</text>
+          <!-- DS2 / TEST -->
+          <rect x="318" y="60" width="86" height="250" rx="4" fill="var(--blue)"/>
+          <text x="361" y="51" text-anchor="middle" font-family="JetBrains Mono" font-size="15" font-weight="700" fill="#23527F">49.697</text>
+          <text x="361" y="333" text-anchor="middle" font-family="JetBrains Mono" font-size="14" font-weight="700" fill="#243640">DS2 · TEST</text>
+          <text x="361" y="351" text-anchor="middle" font-family="Be Vietnam Pro" font-size="12" fill="#5C7079">22 bản ghi</text>
+        </svg>
+        <figcaption>Số nhịp đã làm sạch theo từng tập (tổng 100.697)</figcaption>
+      </figure>
+      <!-- right: explanation -->
+      <div style="display:flex;flex-direction:column;gap:2.2cqh">
+        <p class="splitlead">Chia hoàn toàn <b>theo bản ghi (bệnh nhân)</b> — chuẩn de Chazal, không shuffle toàn cục. Trộn ngẫu nhiên theo nhịp sẽ đưa nhịp cùng bệnh nhân vào cả train lẫn test, <b>thổi phồng kết quả 5–10 pp</b>.</p>
+        <ul class="pts" style="gap:1.7cqh">
+          <li style="--ac:var(--teal);font-size:2.05cqh"><b>TRAIN — 19 bản ghi.</b> Huấn luyện tham số cho cả 4 họ mô hình (class_weight balanced); đa dạng bệnh nhân để học mẫu tổng quát.</li>
+          <li style="--ac:var(--amber);font-size:2.05cqh"><b>VALIDATION — 3 bản ghi</b> (207·209·215, <b>patient-pure</b>). Dò ngưỡng đạt recall ≥ 0.95 và chọn checkpoint CNN/LSTM — <b>không đụng tập test</b>.</li>
+          <li style="--ac:var(--blue);font-size:2.05cqh"><b>TEST · DS2 — 22 bản ghi.</b> Bệnh nhân lạ chưa từng thấy → đo đúng khả năng <b>tổng quát hóa</b>.</li>
+          <li class="sub2">Loại 4 bản ghi máy tạo nhịp (paced) khỏi pipeline: 102 · 104 · 107 · 217.</li>
+        </ul>
       </div>
-      <table class="tbl rise d3">
-        <thead><tr><th>Đầu vào</th><th>Mô tả</th><th>Dùng cho</th></tr></thead>
-        <tbody>
-          <tr><td>21 đặc trưng tay</td><td>thống kê thời gian · wavelet db4 · FFT · RR</td><td>RF · SVM</td></tr>
-          <tr><td>Raw 200×1</td><td>nhịp thô ±100 mẫu quanh R-peak (~555 ms)</td><td>CNN</td></tr>
-          <tr><td>Raw 100×1</td><td>nhịp thô giảm mẫu ×2</td><td>LSTM</td></tr>
-        </tbody>
-      </table>
     </div>
   </div>
-  <div class="foot"><span>TinyML ECG · ESP32</span><span>07 / 20</span></div>
+  <div class="foot"><span>TinyML ECG · ESP32</span><span></span></div>
 </div></section>
 
 <!-- ============ 8 · RF THIẾT KẾ ============ -->
@@ -802,15 +858,13 @@ li b{font-weight:600;color:var(--ink)}
           <text x="110" y="172" text-anchor="middle" font-family="JetBrains Mono" font-size="13" fill="#fff">Bỏ phiếu</text>
         </svg>
       </div>
-      <div style="display:flex;flex-direction:column;gap:2cqh;justify-content:center">
-        <ul class="pts rise d2" style="gap:1.6cqh">
-          <li style="font-size:2.1cqh">Tập hợp nhiều cây quyết định → <b>bỏ phiếu đa số</b></li>
-          <li class="sub2"><b>Đầu vào:</b> 21 đặc trưng — thống kê RR, biên độ, diện tích, morphology nhịp</li>
-          <li>Mỗi cây học từ <b>subsample ngẫu nhiên</b> → giảm variance, tránh overfit</li>
-          <li class="sub2"><b>Knob:</b> tổng nút = n_estimators × max_depth · dải 30 → 960 nút</li>
-          <li>Huấn luyện: <b>class_weight balanced</b> · ngưỡng chỉnh trên DS1-val (recall ≥ 0.95)</li>
-          <li class="sub2"><b>Ưu điểm:</b> không cần GPU · deterministic · nhanh trên MCU (lookup table)</li>
-        </ul>
+      <div class="spec rise d2">
+        <div class="srow lead"><div class="sk">Ý tưởng</div><div class="sv">Tập hợp <b>nhiều cây quyết định độc lập</b>, mỗi cây bỏ một phiếu — lớp được <span class="em">đa số phiếu</span> là kết quả (bagging ensemble).</div></div>
+        <div class="srow"><div class="sk">Đầu vào</div><div class="sv"><b>21 đặc trưng thủ công</b>: RR trước/sau, biên độ &amp; diện tích phức QRS, độ lệch chuẩn, năng lượng băng tần, hệ số hình thái.</div></div>
+        <div class="srow"><div class="sk">Kiến trúc</div><div class="sv">Mỗi cây tách nút theo ngưỡng đặc trưng tối ưu chỉ số <b>Gini</b>; mỗi cây học trên một <b>bootstrap sample</b> + tập con đặc trưng ngẫu nhiên ở mỗi nút → khử tương quan giữa các cây, giảm variance.</div></div>
+        <div class="srow"><div class="sk">Knob dung lượng</div><div class="sv">Tổng số nút = <code>n_estimators × max_depth</code>, quét 6 mức từ <b>30 → 960 nút</b> (<code>n10_d3 … n80_d12</code>).</div></div>
+        <div class="srow"><div class="sk">Huấn luyện</div><div class="sv"><code>class_weight="balanced"</code> bù mất cân bằng lớp; ngưỡng quyết định dò trên <b>DS1-val</b> để đạt recall ≥ 0.95.</div></div>
+        <div class="srow"><div class="sk">Trên MCU</div><div class="sv">Suy luận = chuỗi so sánh <b>if–else</b> (lookup) — <span class="em">deterministic</span>, không cần GPU, rất nhanh.</div></div>
       </div>
     </div>
   </div>
@@ -825,36 +879,22 @@ li b{font-weight:600;color:var(--ink)}
     <h2 class="title rise d1">Random Forest — <span class="hl">kết quả</span></h2>
     <div class="body" style="grid-template-rows:auto 1fr;gap:2cqh">
       <table class="tbl rise d2" style="font-size:1.7cqh">
-        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Khả thi</th></tr></thead>
+        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Recall DS2</th><th>Khả thi</th></tr></thead>
         <tbody>
-          <tr><td>n10_d3</td><td>1.0</td><td>2.9</td><td>0.110 ±0.00</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr class="win"><td>n10_d5 ★</td><td>1.0</td><td>12.0</td><td>0.127 ±0.01</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>n20_d6</td><td>1.2</td><td>42.4</td><td>0.122 ±0.01</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>n50_d10</td><td>4.9</td><td>458.7</td><td>0.117 ±0.00</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>n80_d12</td><td>9.1</td><td>1,005</td><td>0.116 ±0.00</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>n10_d3</td><td>1.0</td><td>2.9</td><td>0.110 ±0.00</td><td style="color:var(--red);font-weight:700">0.78 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>n10_d5</td><td>1.0</td><td>12.0</td><td>0.127 ±0.01</td><td style="color:var(--red);font-weight:700">0.78 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>n20_d6</td><td>1.2</td><td>42.4</td><td>0.122 ±0.01</td><td style="color:var(--red);font-weight:700">0.78 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>n50_d10</td><td>4.9</td><td>458.7</td><td>0.117 ±0.00</td><td style="color:var(--red);font-weight:700">0.78 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>n80_d12</td><td>9.1</td><td>1,005</td><td>0.116 ±0.00</td><td style="color:var(--red);font-weight:700">0.78 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
         </tbody>
       </table>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4cqw;align-items:center">
-        <div class="hero-metric rise d3">
-          <span class="chip">WINNER · rf_n10_d5</span>
-          <div class="num" style="font-size:7cqh">0.127</div>
-          <div class="cap">precision @ recall 0.95 &nbsp;(± 0.01)</div>
-          <div class="mini">
-            <div><div class="k">PR-AUC</div><div class="v">0.742</div></div>
-            <div><div class="k">Độ trễ · Flash</div><div class="v">1.0 ms · 12 KB</div></div>
-            <div><div class="k">FPR @ vận hành</div><div class="v tag-warn">0.835</div></div>
-            <div><div class="k">Recall DS2</div><div class="v tag-warn">0.78 ⚠</div></div>
-          </div>
-        </div>
-        <div class="panel rise d4">
-          <h4>Nhận xét</h4>
-          <ul class="pts" style="gap:1.5cqh">
-            <li><b>Mô hình nhỏ nhất</b> đạt precision cao nhất</li>
-            <li class="sub2">To hơn không cải thiện — đường cong phẳng</li>
-            <li><span class="tag-warn">Threshold transfer yếu</span>: recall DS2 tụt về 0.78</li>
-            <li class="sub2">→ cần recalibrate ngưỡng trên dữ liệu thực</li>
-          </ul>
-        </div>
+      <div class="remarks rise d3">
+        <h4>Nhận xét</h4>
+        <ul>
+          <li><span class="tag-bad">Cả họ bị loại:</span> recall trên test (DS2) chỉ <b>~0.78 &lt; 0.9</b> ở mọi cấu hình → ngưỡng dò trên DS1-val <b>không chuyển được</b> sang bệnh nhân lạ.</li>
+          <li>Mô hình nhỏ nhất (n10_d5) cho precision cao nhất họ nhưng vẫn chỉ ~<b>0.127</b> (PR-AUC 0.742) — tăng số nút không cải thiện, đường cong gần như phẳng.</li>
+          <li>Gốc rễ: ngưỡng RF nhạy với phân phối đặc trưng theo bệnh nhân → trượt mạnh khi đổi tập, không đạt độ nhạy lâm sàng.</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -877,15 +917,14 @@ li b{font-weight:600;color:var(--ink)}
           <g fill="#E5484D"><circle cx="150" cy="150" r="8"/><circle cx="120" cy="165" r="8"/><circle cx="170" cy="120" r="8"/><circle cx="100" cy="150" r="8"/></g>
         </svg>
       </div>
-      <div style="display:flex;flex-direction:column;gap:2cqh;justify-content:center">
-        <ul class="pts rise d2" style="gap:1.6cqh">
-          <li style="font-size:2.1cqh">Tìm <b>siêu phẳng tối ưu</b> phân tách Normal / Abnormal</li>
-          <li class="sub2"><b>Đầu vào:</b> 21 đặc trưng (giống RF) — không cần nhịp thô</li>
-          <li><b>Linear:</b> 1 siêu phẳng · 21 trọng số — tuyến tính trong không gian đặc trưng</li>
-          <li class="sub2"><b>RBF:</b> kernel trick → không gian chiều cao · số SV tăng theo dữ liệu</li>
-          <li><b>Knob:</b> số support vector · linear=1 → rbf10k≈10,000 SV</li>
-          <li class="sub2">Class imbalance → <b>class_weight balanced</b> · ngưỡng chỉnh trên DS1-val</li>
-        </ul>
+      <div class="spec rise d2">
+        <div class="srow lead"><div class="sk">Ý tưởng</div><div class="sv">Tìm <b>siêu phẳng phân tách</b> hai lớp với <span class="em">lề (margin) cực đại</span> → biên quyết định ổn định nhất, ít nhạy với nhiễu.</div></div>
+        <div class="srow"><div class="sk">Đầu vào</div><div class="sv"><b>21 đặc trưng thủ công</b> (giống Random Forest) — không cần nhịp thô.</div></div>
+        <div class="srow"><div class="sk">Linear</div><div class="sv">Một siêu phẳng <code>w·x + b</code> chỉ <b>21 trọng số + 1 bias</b>; quyết định = dấu của tích vô hướng — tuyến tính trong không gian đặc trưng.</div></div>
+        <div class="srow"><div class="sk">RBF</div><div class="sv">Kernel Gaussian ánh xạ <b>phi tuyến</b> lên không gian chiều cao; phải lưu lại <b>k support vector</b> → nặng dần theo dữ liệu.</div></div>
+        <div class="srow"><div class="sk">Knob dung lượng</div><div class="sv">Số support vector: <code>linear</code> (1 vector trọng số) → <code>rbf1k … rbf10k</code> (≈ 10,000 SV).</div></div>
+        <div class="srow"><div class="sk">Huấn luyện</div><div class="sv"><code>class_weight="balanced"</code>; tham số <code>C</code> đánh đổi lề–lỗi; ngưỡng dò trên <b>DS1-val</b>.</div></div>
+        <div class="srow"><div class="sk">Trên MCU</div><div class="sv">Linear = <b>21 phép nhân–cộng / nhịp</b> (0.2 KB) — <span class="em">nhẹ &amp; nhanh nhất</span> toàn bộ 4 họ.</div></div>
       </div>
     </div>
   </div>
@@ -900,37 +939,22 @@ li b{font-weight:600;color:var(--ink)}
     <h2 class="title rise d1">SVM — <span class="hl">kết quả ⭐ quán quân</span></h2>
     <div class="body" style="grid-template-rows:auto 1fr;gap:2cqh">
       <table class="tbl rise d2" style="font-size:1.7cqh">
-        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Khả thi</th></tr></thead>
+        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Recall DS2</th><th>Khả thi</th></tr></thead>
         <tbody>
-          <tr class="win"><td>linear ★</td><td>1.0</td><td>0.2</td><td>0.193 ±0.00</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>rbf1k</td><td>1.8</td><td>14.9</td><td>0.189 ±0.04</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>rbf4k</td><td>9.3</td><td>39.0</td><td>0.181 ±0.01</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>rbf7k</td><td>14.2</td><td>74.3</td><td>0.164 ±0.02</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>rbf10k</td><td>17.4</td><td>93.9</td><td>0.182 ±0.02</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr class="win"><td>linear ★</td><td>1.0</td><td>0.2</td><td>0.193 ±0.00</td><td style="color:var(--green);font-weight:700">0.92 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>rbf1k</td><td>1.8</td><td>14.9</td><td>0.189 ±0.04</td><td style="color:var(--red);font-weight:700">0.83 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>rbf4k</td><td>9.3</td><td>39.0</td><td>0.181 ±0.01</td><td style="color:var(--red);font-weight:700">0.82 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>rbf7k</td><td>14.2</td><td>74.3</td><td>0.164 ±0.02</td><td style="color:var(--red);font-weight:700">0.84 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>rbf10k</td><td>17.4</td><td>93.9</td><td>0.182 ±0.02</td><td style="color:var(--red);font-weight:700">0.80 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
         </tbody>
       </table>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4cqw;align-items:center">
-        <div class="hero-metric rise d3" style="--ac:var(--green)">
-          <span class="chip" style="--ac:var(--green)">WINNER TOÀN CỤC · svm_linear</span>
-          <div class="num" style="font-size:7cqh;--ac:var(--green)">0.193</div>
-          <div class="cap">precision @ recall 0.95 &nbsp;(± 0.00 → tái lập)</div>
-          <div class="mini">
-            <div><div class="k">PR-AUC</div><div class="v">0.730</div></div>
-            <div><div class="k">Độ trễ · Flash</div><div class="v">1.0 ms · 0.2 KB</div></div>
-            <div><div class="k">FPR @ vận hành</div><div class="v tag-win">0.49 (thấp nhất)</div></div>
-            <div><div class="k">Recall DS2</div><div class="v tag-warn">0.92 ⚠</div></div>
-          </div>
-        </div>
-        <div class="panel rise d4">
-          <h4>Vì sao thắng</h4>
-          <ul class="pts" style="gap:1.5cqh">
-            <li><span class="tag-win">Precision trung bình cao nhất toàn cục</span></li>
-            <li class="sub2">std = 0 → hoàn toàn tái lập, không may mắn</li>
-            <li><b>Nhỏ &amp; đơn giản nhất</b>: 21 số · 0.2 KB</li>
-            <li class="sub2 tag-blue">FPR thấp nhất trong các winner</li>
-            <li class="sub2"><span class="tag-warn">Caveat: recall DS2 0.92 (chuyển ngưỡng)</span></li>
-          </ul>
-        </div>
+      <div class="remarks rise d3" style="--ac:var(--green)">
+        <h4>Vì sao thắng</h4>
+        <ul>
+          <li><span class="tag-win">Quán quân toàn cục:</span> svm_linear đạt precision trung bình cao nhất (<b>0.193</b>), std = 0 → hoàn toàn tái lập, không nhờ may mắn.</li>
+          <li><span class="tag-win">Duy nhất qua cổng recall:</span> chỉ svm_linear giữ recall DS2 <b>0.92 ≥ 0.9</b>; mọi biến thể RBF tụt còn 0.80–0.84 → <b>bị loại</b>.</li>
+          <li><b>Nhỏ &amp; đơn giản nhất:</b> 21 trọng số · 0.2 KB · 1.0 ms · <span class="tag-blue">FPR thấp nhất</span> (0.49).</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -954,15 +978,13 @@ li b{font-weight:600;color:var(--ink)}
           <text x="110" y="108" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#5C7079">feature maps</text>
         </svg>
       </div>
-      <div style="display:flex;flex-direction:column;gap:2cqh;justify-content:center">
-        <ul class="pts rise d2" style="gap:1.6cqh">
-          <li style="font-size:2.1cqh"><b>Học đặc trưng trực tiếp</b> từ nhịp thô 200×1 (không hand-craft)</li>
-          <li class="sub2"><b>Kiến trúc:</b> xếp chồng [Conv1D → BatchNorm → ReLU → MaxPool] × N khối</li>
-          <li class="sub2">Cuối: GlobalAvgPool → FC(1) → Sigmoid · 1–4 khối tuỳ cấu hình</li>
-          <li><b>Knob:</b> số filter → MACs/nhịp · dải c4 (2K MACs) → c16-32-64-64 (64K MACs)</li>
-          <li>Huấn luyện: <b>mixed-precision GPU</b> · early-stop trên DS1-val · 5 seed (std lớn ±0.05)</li>
-          <li class="sub2">Class imbalance → <b>pos_weight</b> ≈ 5.7 · ngưỡng chỉnh trên DS1-val</li>
-        </ul>
+      <div class="spec rise d2">
+        <div class="srow lead"><div class="sk">Ý tưởng</div><div class="sv"><b>Tự học bộ lọc đặc trưng</b> trực tiếp từ dạng sóng — bỏ hoàn toàn bước trích đặc trưng thủ công.</div></div>
+        <div class="srow"><div class="sk">Đầu vào</div><div class="sv">Nhịp thô <b>200 × 1 mẫu</b> (±100 quanh đỉnh R, ≈ 555 ms @ 360 Hz).</div></div>
+        <div class="srow"><div class="sk">Kiến trúc</div><div class="sv"><b>N khối</b> <code>[Conv1D → BatchNorm → ReLU → MaxPool↓2]</code>; kết thúc <code>GlobalAvgPool → FC(1) → Sigmoid</code>.</div></div>
+        <div class="srow"><div class="sk">Chi tiết</div><div class="sv">Số kênh <b>tăng dần theo độ sâu</b> (vd <code>c8-16</code> = 8 rồi 16 filter); receptive field nới rộng đủ phủ trọn phức QRS.</div></div>
+        <div class="srow"><div class="sk">Knob dung lượng</div><div class="sv">Số filter / khối → <b>MACs / nhịp</b>: <code>c4</code> (~2K MACs) → <code>c16-32-64-64</code> (~64K MACs).</div></div>
+        <div class="srow"><div class="sk">Huấn luyện</div><div class="sv">GPU <b>mixed-precision</b>, Adam, <code>pos_weight ≈ 5.7</code> bù lệch lớp, early-stop theo F1 trên <b>DS1-val</b>, 5 seed (<span class="em">std lớn ±0.05</span>).</div></div>
       </div>
     </div>
   </div>
@@ -977,36 +999,22 @@ li b{font-weight:600;color:var(--ink)}
     <h2 class="title rise d1">1D-CNN — <span class="hl">kết quả</span></h2>
     <div class="body" style="grid-template-rows:auto 1fr;gap:2cqh">
       <table class="tbl rise d2" style="font-size:1.7cqh">
-        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Khả thi</th></tr></thead>
+        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Recall DS2</th><th>Khả thi</th></tr></thead>
         <tbody>
-          <tr><td>c4</td><td>0.9</td><td>0.1</td><td>0.146 ±0.03</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>c8</td><td>1.6</td><td>0.3</td><td>0.150 ±0.03</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr class="win"><td>c8-16 ★</td><td>19.8</td><td>52.9</td><td>0.172 ±0.05</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>c16-32-32</td><td>99.7</td><td>131</td><td>0.157 ±0.02</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>c16-32-64-64</td><td>238.6</td><td>324</td><td>0.129 ±0.02</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>c4</td><td>0.9</td><td>0.1</td><td>0.146 ±0.03</td><td style="color:var(--green);font-weight:700">0.97 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>c8</td><td>1.6</td><td>0.3</td><td>0.150 ±0.03</td><td style="color:var(--green);font-weight:700">0.98 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr class="win"><td>c8-16 ★</td><td>19.8</td><td>52.9</td><td>0.172 ±0.05</td><td style="color:var(--green);font-weight:700">0.97 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>c16-32-32</td><td>99.7</td><td>131</td><td>0.157 ±0.02</td><td style="color:var(--green);font-weight:700">0.96 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>c16-32-64-64</td><td style="color:var(--red);font-weight:700">238.6 ✗</td><td>324</td><td>0.129 ±0.02</td><td style="color:var(--red);font-weight:700">0.88 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
         </tbody>
       </table>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4cqw;align-items:center">
-        <div class="hero-metric rise d3" style="--ac:var(--cyan)">
-          <span class="chip" style="--ac:var(--cyan)">WINNER · cnn_c8-16</span>
-          <div class="num" style="font-size:7cqh;--ac:var(--cyan)">0.172</div>
-          <div class="cap">precision @ recall 0.95 &nbsp;(± 0.05 — phương sai lớn)</div>
-          <div class="mini">
-            <div><div class="k">PR-AUC</div><div class="v">0.635</div></div>
-            <div><div class="k">Độ trễ · Flash</div><div class="v">19.8 ms · 52.9 KB</div></div>
-            <div><div class="k">Recall DS2</div><div class="v tag-win">0.965 ✓</div></div>
-            <div><div class="k">FPR @ vận hành</div><div class="v">0.632</div></div>
-          </div>
-        </div>
-        <div class="panel rise d4">
-          <h4>Nhận xét</h4>
-          <ul class="pts" style="gap:1.5cqh">
-            <li><span class="tag-win">Chuyển ngưỡng tốt nhất trong nhóm 4</span> (recall 0.965)</li>
-            <li><span class="tag-warn">Phương sai seed lớn (±0.05)</span></li>
-            <li class="sub2">1 lần chạy may mắn ≠ chất lượng thật → cần 5 seed</li>
-            <li class="sub2">Biến thể lớn (c16-32-64-64) vi phạm 100ms → ✗</li>
-          </ul>
-        </div>
+      <div class="remarks rise d3" style="--ac:var(--cyan)">
+        <h4>Nhận xét</h4>
+        <ul>
+          <li><span class="tag-win">Qua cổng recall thoải mái:</span> recall DS2 0.96–0.98 ≥ 0.9 ở mọi cấu hình khả thi — ngưỡng chuyển sang bệnh nhân lạ rất tốt (nhưng PR-AUC chỉ 0.635).</li>
+          <li>cnn_c8-16 tốt nhất họ với precision 0.172 — <span class="tag-warn">phương sai seed lớn (±0.05)</span>: một lần chạy may mắn ≠ chất lượng thật, phải lấy trung bình 5 seed.</li>
+          <li>Biến thể lớn (c16-32-64-64) vượt 100 ms <b>và</b> recall DS2 0.88 &lt; 0.9 → <b>bị loại</b> kép.</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -1033,15 +1041,14 @@ li b{font-weight:600;color:var(--ink)}
           <text x="110" y="50" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#5C7079">cổng nhớ qua thời gian</text>
         </svg>
       </div>
-      <div style="display:flex;flex-direction:column;gap:2cqh;justify-content:center">
-        <ul class="pts rise d2" style="gap:1.6cqh">
-          <li style="font-size:2.1cqh"><b>Mạng hồi tiếp</b> — mô hình hoá phụ thuộc thời gian trong nhịp</li>
-          <li class="sub2"><b>Đầu vào:</b> nhịp thô downsample ×2 → 100 bước × 1 chiều</li>
-          <li class="sub2"><b>Cổng nhớ:</b> forget / input / output gate → kiểm soát thông tin qua bước</li>
-          <li><b>Knob:</b> hidden size (h4 → h32) + lớp thứ 2 (h32x2)</li>
-          <li class="sub2">Dải: h4 (0.4K params, 3.4ms) → h32x2 (2 lớp, 261ms)</li>
-          <li>Huấn luyện: <b>fp32</b> · early-stop trên DS1-val · 5 seed · std ổn định ±0.01</li>
-        </ul>
+      <div class="spec rise d2">
+        <div class="srow lead"><div class="sk">Ý tưởng</div><div class="sv"><b>Mạng hồi tiếp</b> đọc nhịp theo trình tự thời gian, giữ một <span class="em">trạng thái nhớ</span> truyền qua từng bước.</div></div>
+        <div class="srow"><div class="sk">Đầu vào</div><div class="sv">Nhịp thô <b>downsample ×2</b> → 100 bước × 1 chiều (chuỗi thời gian).</div></div>
+        <div class="srow"><div class="sk">Kiến trúc</div><div class="sv">Lớp <b>LSTM</b> → trạng thái ẩn cuối → <code>FC(1) → Sigmoid</code>; mỗi ô có 3 cổng điều tiết ô nhớ <code>c_t</code>.</div></div>
+        <div class="srow"><div class="sk">Cổng nhớ</div><div class="sv"><b>Forget</b> xoá nhớ cũ · <b>Input</b> ghi thông tin mới · <b>Output</b> lọc trạng thái phát ra → học phụ thuộc dài.</div></div>
+        <div class="srow"><div class="sk">Knob dung lượng</div><div class="sv">Hidden size <code>h4 → h32</code>, cộng biến thể 2 lớp <code>h32x2</code>.</div></div>
+        <div class="srow"><div class="sk">Dải chi phí</div><div class="sv"><code>h4</code> (~0.4K params, 3.4 ms) → <code>h32x2</code> (2 lớp, 261 ms).</div></div>
+        <div class="srow"><div class="sk">Huấn luyện</div><div class="sv"><b>fp32</b>, Adam, early-stop trên <b>DS1-val</b>, 5 seed (<span class="em">std ổn định ±0.01</span>).</div></div>
       </div>
     </div>
   </div>
@@ -1056,36 +1063,22 @@ li b{font-weight:600;color:var(--ink)}
     <h2 class="title rise d1">LSTM — <span class="hl">kết quả</span></h2>
     <div class="body" style="grid-template-rows:auto 1fr;gap:2cqh">
       <table class="tbl rise d2" style="font-size:1.7cqh">
-        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Khả thi</th></tr></thead>
+        <thead><tr><th>Cấu hình</th><th>Latency ms</th><th>Flash KB</th><th>Prec@0.95 ±std</th><th>Recall DS2</th><th>Khả thi</th></tr></thead>
         <tbody>
-          <tr><td>h4</td><td>3.4</td><td>0.5</td><td>0.138 ±0.02</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr class="win"><td>h8 ★</td><td>31.1</td><td>1.4</td><td>0.152 ±0.01</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>h16</td><td>15.4</td><td>4.9</td><td>0.138 ±0.01</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>h32</td><td>58.4</td><td>17.8</td><td>0.141 ±0.01</td><td style="color:var(--green);font-weight:700">✓</td></tr>
-          <tr><td>h32x2</td><td>261.6</td><td>50.8</td><td>0.145 ±0.01</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr><td>h4</td><td>3.4</td><td>0.5</td><td>0.138 ±0.02</td><td style="color:var(--green);font-weight:700">0.97 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr class="win"><td>h8 ★</td><td>31.1</td><td>1.4</td><td>0.152 ±0.01</td><td style="color:var(--green);font-weight:700">0.99 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>h16</td><td>15.4</td><td>4.9</td><td>0.138 ±0.01</td><td style="color:var(--green);font-weight:700">0.99 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>h32</td><td>58.4</td><td>17.8</td><td>0.141 ±0.01</td><td style="color:var(--green);font-weight:700">0.99 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>h32x2</td><td style="color:var(--red);font-weight:700">261.6 ✗</td><td>50.8</td><td>0.145 ±0.01</td><td style="color:var(--green);font-weight:700">0.98 ✓</td><td style="color:var(--red);font-weight:700">✗</td></tr>
         </tbody>
       </table>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4cqw;align-items:center">
-        <div class="hero-metric rise d3" style="--ac:var(--amber)">
-          <span class="chip" style="--ac:var(--amber)">WINNER · lstm_h8</span>
-          <div class="num" style="font-size:7cqh;--ac:var(--amber)">0.152</div>
-          <div class="cap">precision @ recall 0.95 &nbsp;(± 0.01)</div>
-          <div class="mini">
-            <div><div class="k">PR-AUC</div><div class="v tag-warn">0.476 (thấp nhất)</div></div>
-            <div><div class="k">Độ trễ · Flash</div><div class="v">31.1 ms · 1.4 KB</div></div>
-            <div><div class="k">Recall DS2</div><div class="v tag-win">0.987 ✓</div></div>
-            <div><div class="k">FPR @ vận hành</div><div class="v">0.657</div></div>
-          </div>
-        </div>
-        <div class="panel rise d4">
-          <h4>Nhận xét</h4>
-          <ul class="pts" style="gap:1.5cqh">
-            <li><span class="tag-win">Chuyển ngưỡng tốt nhất toàn cục</span> (recall 0.987)</li>
-            <li class="sub2 tag-blue">Flash rất nhỏ (1.4 KB) — tiết kiệm nhất trong deep</li>
-            <li><span class="tag-warn">PR-AUC thấp nhất → tách lớp yếu hơn các họ</span></li>
-            <li class="sub2">Mô hình nhỏ (h8) vẫn tốt nhất trong họ LSTM</li>
-          </ul>
-        </div>
+      <div class="remarks rise d3" style="--ac:var(--amber)">
+        <h4>Nhận xét</h4>
+        <ul>
+          <li><span class="tag-win">Chuyển ngưỡng tốt nhất toàn cục</span> — recall DS2 0.97–0.99, qua cổng ≥ 0.9 ở mọi cấu hình (h32x2 chỉ trượt vì latency 262 ms).</li>
+          <li>lstm_h8 tốt nhất họ (precision 0.152) — <span class="tag-blue">flash chỉ 1.4 KB</span>, tiết kiệm nhất nhóm deep.</li>
+          <li><span class="tag-warn">PR-AUC thấp nhất (0.476)</span> → khả năng tách lớp yếu hơn các họ khác.</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -1096,21 +1089,21 @@ li b{font-weight:600;color:var(--ink)}
 <section class="stage"><div class="slide" style="--ac:var(--teal)">
   <span class="rail"></span>
   <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 1 / 6</div>
+    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 1 / 5</div>
     <h2 class="title rise d1">So sánh tổng hợp — <span class="hl">winner 4 họ</span></h2>
     <div class="body" style="grid-template-rows:auto 1fr;gap:2.6cqh">
       <table class="tbl rise d2" style="font-size:1.85cqh;align-self:start">
         <thead><tr><th>Họ</th><th>Winner</th><th>Prec@.95</th><th>FPR</th><th>PR-AUC</th><th>Trễ (ms)</th><th>Flash KB</th><th>Recall DS2</th><th>Khả thi</th></tr></thead>
         <tbody>
-          <tr><td>RF</td><td>n10_d5</td><td>0.127</td><td>0.83</td><td>0.742</td><td>1.0</td><td>12.0</td><td>0.78 ⚠</td><td>✓</td></tr>
-          <tr class="win"><td>SVM</td><td>linear</td><td>0.193</td><td>0.49</td><td>0.730</td><td>1.0</td><td>0.2</td><td>0.92 ⚠</td><td>✓</td></tr>
-          <tr><td>CNN</td><td>c8-16</td><td>0.172</td><td>0.63</td><td>0.635</td><td>19.8</td><td>52.9</td><td>0.965 ✓</td><td>✓</td></tr>
-          <tr><td>LSTM</td><td>h8</td><td>0.152</td><td>0.66</td><td>0.476</td><td>31.1</td><td>1.4</td><td>0.987 ✓</td><td>✓</td></tr>
+          <tr><td>RF</td><td>n10_d5</td><td>0.127</td><td>0.83</td><td>0.742</td><td>1.0</td><td>12.0</td><td style="color:var(--red);font-weight:700">0.78 ✗</td><td style="color:var(--red);font-weight:700">✗</td></tr>
+          <tr class="win"><td>SVM</td><td>linear</td><td>0.193</td><td>0.49</td><td>0.730</td><td>1.0</td><td>0.2</td><td style="color:var(--green);font-weight:700">0.92 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>CNN</td><td>c8-16</td><td>0.172</td><td>0.63</td><td>0.635</td><td>19.8</td><td>52.9</td><td style="color:var(--green);font-weight:700">0.965 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
+          <tr><td>LSTM</td><td>h8</td><td>0.152</td><td>0.66</td><td>0.476</td><td>31.1</td><td>1.4</td><td style="color:var(--green);font-weight:700">0.987 ✓</td><td style="color:var(--green);font-weight:700">✓</td></tr>
         </tbody>
       </table>
-      <div class="panel rise d3" style="padding:2.4cqh 2.6cqw;align-self:end">
-        <p style="font-size:2.3cqh">Quán quân toàn cục: <b class="tag-win">SVM linear</b> — precision trung bình cao nhất, nhanh nhất, nhỏ nhất, xác định.</p>
-        <p style="font-size:1.85cqh;color:var(--muted);font-style:italic;margin-top:1cqh">⚠ RF/SVM tụt recall trên DS2 (chuyển ngưỡng) · CNN/LSTM chuyển ngưỡng tốt nhưng đắt hơn.</p>
+      <div class="rise d3" style="align-self:start;border-left:.55cqh solid var(--ac);padding-left:1.8cqw">
+        <p style="font-size:2.3cqh">Quán quân toàn cục: <b class="tag-win">SVM linear</b> — precision trung bình cao nhất, nhanh nhất, nhỏ nhất, xác định, <b>và giữ recall ≥ 0.9 trên test</b>.</p>
+        <p style="font-size:1.85cqh;color:var(--muted);font-style:italic;margin-top:1cqh">⚠ Cổng recall DS2 ≥ 0.9 <b>loại toàn bộ RF (0.78) và SVM-RBF (0.80–0.84)</b> · chỉ SVM linear sống sót trong nhóm feature · CNN/LSTM chuyển ngưỡng tốt nhưng precision thấp hơn &amp; đắt hơn.</p>
       </div>
     </div>
   </div>
@@ -1121,52 +1114,23 @@ li b{font-weight:600;color:var(--ink)}
 <section class="stage"><div class="slide" style="--ac:var(--teal)">
   <span class="rail"></span>
   <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 2 / 6</div>
+    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 2 / 5</div>
     <h2 class="title rise d1">Chất lượng vs chi phí — <span class="hl">“to hơn không tốt hơn”</span></h2>
-    <div class="body" style="grid-template-rows:1fr auto;gap:2.4cqh">
+    <div class="body">
       <figure class="fig rise d2">
         <img src="results/within_family_quality_vs_cost.png" alt="quality vs cost">
         <figcaption>Precision &amp; PR-AUC theo MACs (log) · vòng tròn = winner mỗi họ</figcaption>
       </figure>
-      <div class="notestrip rise d3">
-        <div class="note" style="--ac:var(--teal)"><b>Chất lượng đạt đỉnh</b> ở mô hình nhỏ</div>
-        <div class="note" style="--ac:var(--amber)">Tăng năng lực → <b>bão hoà / giảm</b></div>
-        <div class="note" style="--ac:var(--red)">Mô hình lớn = <b>đắt mà không lợi</b></div>
-        <div class="note" style="--ac:var(--green)"><b>Chọn nhỏ</b>: rẻ · nhanh · khả thi</div>
-      </div>
     </div>
   </div>
   <div class="foot"><span>TinyML ECG · ESP32</span><span>17 / 20</span></div>
-</div></section>
-
-<!-- ============ 18 · PARETO ============ -->
-<section class="stage"><div class="slide" style="--ac:var(--teal)">
-  <span class="rail"></span>
-  <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 3 / 6</div>
-    <h2 class="title rise d1">Mặt Pareto đa họ — <span class="hl">chọn winner toàn cục</span></h2>
-    <div class="body cols-6040">
-      <figure class="fig rise d2">
-        <img src="results/cross_family_pareto.png" alt="pareto">
-        <figcaption>Precision vs độ trễ (log) · vạch đứng = ngưỡng 100 ms</figcaption>
-      </figure>
-      <ul class="pts rise d3" style="justify-content:center">
-        <li>Vùng khả thi = <b>bên trái 100 ms</b></li>
-        <li class="tag-win"><b>SVM linear</b> ở góc tốt nhất</li>
-        <li class="sub2">cao nhất &amp; trái nhất</li>
-        <li class="sub2 tag-warn">CNN/LSTM lớn rơi ra ngoài ngưỡng</li>
-        <li>Đơn giản nhất thắng theo trung bình</li>
-      </ul>
-    </div>
-  </div>
-  <div class="foot"><span>TinyML ECG · ESP32</span><span>18 / 20</span></div>
 </div></section>
 
 <!-- ============ 19 · VÌ SAO PRECISION THẤP 1/3 ============ -->
 <section class="stage"><div class="slide" style="--ac:var(--amber)">
   <span class="rail"></span>
   <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 4 / 6</div>
+    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 4 / 5</div>
     <h2 class="title rise d1">Vì sao precision thấp <span class="hl">(0.13–0.19)?</span></h2>
     <div class="body" style="grid-template-rows:auto 1fr;gap:2cqh">
       <div class="stats rise d2">
@@ -1179,10 +1143,10 @@ li b{font-weight:600;color:var(--ink)}
         <tbody>
           <tr style="background:#FFF5E0"><td>Mất cân bằng lớp (~11% bất thường) → <b>trần precision bị chặn bằng toán học</b></td><td style="color:var(--amber);font-weight:700">Bản chất</td><td style="color:var(--red);font-weight:600">Không</td></tr>
           <tr style="background:#FFF5E0"><td>Chia theo bệnh nhân (inter-patient, de Chazal) — test là người chưa từng gặp</td><td style="color:var(--amber);font-weight:700">Bản chất</td><td style="color:var(--red);font-weight:600">Không (bỏ = ăn gian)</td></tr>
-          <tr style="background:#FFF5E0"><td>Hai lớp chồng lấn sinh học: <b>SVEB trông gần y hệt nhịp thường</b> (xem slide sau)</td><td style="color:var(--amber);font-weight:700">Bản chất</td><td style="color:var(--red);font-weight:600">Không</td></tr>
-          <tr style="background:#FFF5E0"><td>Gộp nhị phân: SVEB (khó) lẫn VEB (dễ) chung một rổ "bất thường"</td><td style="color:var(--amber);font-weight:700">Bản chất / lựa chọn</td><td style="color:var(--amber);font-weight:600">Một phần</td></tr>
-          <tr style="background:#EAF3FF"><td>Ép recall ≥ 0.95 → hạ ngưỡng rất thấp → quét nhầm hàng loạt nhịp Normal</td><td style="color:var(--blue);font-weight:700">Lựa chọn (lâm sàng)</td><td style="color:var(--blue);font-weight:600">Có, đánh đổi recall</td></tr>
-          <tr style="background:#EAF3FF"><td>Mô hình tí hon + 1 chuyển đạo MLII — ràng buộc ESP32, đã bỏ kênh V1</td><td style="color:var(--blue);font-weight:700">Lựa chọn (phần cứng)</td><td style="color:var(--blue);font-weight:600">Có, phá ràng buộc</td></tr>
+          <tr style="background:#FFF5E0"><td>Hai lớp chồng lấn sinh học: <b>SVEB bất thường nhưng trông gần y hệt nhịp thường</b> (xem slide sau)</td><td style="color:var(--amber);font-weight:700">Bản chất</td><td style="color:var(--red);font-weight:600">Không</td></tr>
+          <tr style="background:#FFF5E0"><td>Nhãn L/R trong siêu lớp AMII N (Normal) bình thường nhưng hình dạng méo bất thường</td><td style="color:var(--amber);font-weight:700">Bản chất</td><td style="color:var(--red);font-weight:600">Không</td></tr>
+          <tr style="background:#EAF3FF"><td>Ép recall ≥ 0.95 → hạ ngưỡng rất thấp → quét nhầm hàng loạt nhịp Normal</td><td style="color:var(--blue);font-weight:700">Ràng buộc (lâm sàng)</td><td style="color:var(--red);font-weight:600">Không (yêu cầu an toàn)</td></tr>
+          <tr style="background:#EAF3FF"><td>Mô hình tí hon + 1 chuyển đạo MLII — giới hạn phần cứng ESP32 (không thể tăng size / thêm kênh)</td><td style="color:var(--blue);font-weight:700">Ràng buộc (phần cứng)</td><td style="color:var(--red);font-weight:600">Không (ràng buộc đề bài)</td></tr>
         </tbody>
       </table>
     </div>
@@ -1194,49 +1158,17 @@ li b{font-weight:600;color:var(--ink)}
 <section class="stage"><div class="slide" style="--ac:var(--amber)">
   <span class="rail"></span>
   <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 5 / 6</div>
-    <h2 class="title rise d1">Thủ phạm: <span class="hl">SVEB gần-y-hệt nhịp thường</span></h2>
-    <div class="body" style="grid-template-rows:1fr auto auto;gap:1.6cqh">
-      <figure class="fig rise d2">
-        <img src="results/beat_easy_vs_hard.png" alt="VEB vs SVEB">
-        <figcaption>Nhịp thật từ MIT-BIH · cùng bệnh nhân. <b>Trái (dễ)</b>: VEB méo bè, đảo chiều → khác hẳn · <b>Phải (khó)</b>: SVEB gần như chồng khít Normal</figcaption>
+    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 5 / 5</div>
+    <h2 class="title rise d1">Hình dạng nhịp thật <span class="hl">theo AAMI</span></h2>
+    <div class="body" style="grid-template-rows:1fr 1fr;gap:.6cqh;margin-top:1cqh">
+      <figure class="fig rise d2" style="gap:0">
+        <img src="results/beat_easy_vs_hard.png" alt="VEB vs SVEB" style="max-height:84%">
+        <figcaption style="margin-top:.2cqh">VEB (dễ) vs SVEB (khó)</figcaption>
       </figure>
-      <table class="tbl rise d3" style="font-size:1.5cqh">
-        <thead><tr><th>Siêu lớp AAMI</th><th>Ký hiệu gốc</th><th>Nhãn nhị phân</th><th>Hình dạng QRS</th></tr></thead>
-        <tbody>
-          <tr><td>N (Normal)</td><td>N, L, R, e, j</td><td>0 — Bình thường</td><td>đa số chuẩn; <span class="tag-warn">NHƯNG L/R (block nhánh) lại MÉO TO</span></td></tr>
-          <tr style="background:#FFF5E0"><td style="color:var(--amber);font-weight:700">SVEB</td><td>A, a, J, S</td><td>1 — Bất thường</td><td><span class="tag-bad">gần y hệt Normal → KHÓ</span></td></tr>
-          <tr style="background:#E6F7EF"><td style="color:var(--green);font-weight:700">VEB</td><td>V, E</td><td>1 — Bất thường</td><td><span class="tag-win">méo bè, khác hẳn → DỄ</span></td></tr>
-          <tr><td>F (Fusion)</td><td>F</td><td>1 — Bất thường</td><td>nhịp lai (VEB + Normal)</td></tr>
-          <tr><td>Q (Unknown)</td><td>/, f, Q</td><td>1 — Bất thường</td><td>tạo nhịp / không phân loại (hiếm)</td></tr>
-        </tbody>
-      </table>
-      <div class="notestrip rise d4">
-        <div class="note" style="--ac:var(--amber)"><b>Nghịch lý:</b> L/R hình méo to nhưng nhãn 0 (Normal) · SVEB hình đẹp nhưng nhãn 1 → ranh giới hình dạng nhòe → mô hình "bị lừa" cả hai chiều</div>
-        <div class="note" style="--ac:var(--red)"><b>Hệ quả:</b> recall ≥ 0.95 buộc phải bắt SVEB-giống-Normal → hạ ngưỡng thấp → quét nhầm hàng loạt nhịp bình thường → precision sụp</div>
-      </div>
-    </div>
-  </div>
-  <div class="foot"><span>TinyML ECG · ESP32</span><span></span></div>
-</div></section>
-
-<!-- ============ 21 · VÌ SAO PRECISION THẤP 3/3 ============ -->
-<section class="stage"><div class="slide" style="--ac:var(--teal)">
-  <span class="rail"></span>
-  <div class="pad">
-    <div class="eyebrow rise d1"><span class="ph">04</span> Kết quả · 6 / 6</div>
-    <h2 class="title rise d1">Hình dạng thật theo AAMI & <span class="hl">hướng xử lý</span></h2>
-    <div class="body" style="grid-template-rows:1fr auto;gap:2cqh">
-      <figure class="fig rise d2">
-        <img src="results/beat_morphology_gallery.png" alt="morphology gallery">
-        <figcaption>Nhịp thật MIT-BIH từng nhóm. <b>N</b> nhọn gọn · <b>V</b> (VEB) méo bè, đảo chiều → dễ · <b>A</b> (SVEB) gần y hệt N → khó · <b>L/R</b> (block nhánh) méo to nhưng nhãn Normal — <span style="color:var(--amber);font-weight:600">nghịch lý AAMI</span></figcaption>
+      <figure class="fig rise d3" style="gap:0">
+        <img src="results/beat_lbbb_rbbb_vs_normal.png" alt="LBBB/RBBB vs Normal" style="max-height:84%">
+        <figcaption style="margin-top:.2cqh">L vs N · R vs N (nghịch lý AAMI)</figcaption>
       </figure>
-      <div class="notestrip rise d3">
-        <div class="note" style="--ac:var(--teal)"><b>1. Debounce cửa sổ:</b> chỉ báo khi N/M nhịp bất thường liên tiếp → lọc báo nhầm lẻ tẻ, gần như không giảm độ nhạy lâm sàng — đòn bẩy rẻ nhất</div>
-        <div class="note" style="--ac:var(--teal)"><b>2. Cá nhân hoá ngưỡng:</b> tinh chỉnh theo vài chục nhịp chuẩn của chính bệnh nhân (patient-adaptive) — mạnh nhất nhưng đổi định nghĩa bài toán</div>
-        <div class="note" style="--ac:var(--blue)"><b>3. Thêm kênh V1:</b> sóng P hiện rõ nhất ở V1 → phân biệt SVEB trực tiếp; đổi lại phải bỏ ràng buộc 1-cảm-biến của ESP32</div>
-        <div class="note" style="--ac:var(--blue)"><b>4. Lọc hai tầng:</b> thiết bị giữ recall cao (an toàn), ca nghi ngờ đẩy lên bác sĩ / model lớn ở cloud xác nhận → precision phục hồi ở tầng sau</div>
-      </div>
     </div>
   </div>
   <div class="foot"><span>TinyML ECG · ESP32</span><span></span></div>
@@ -1248,29 +1180,21 @@ li b{font-weight:600;color:var(--ink)}
   <div class="pad">
     <div class="eyebrow rise d1"><span class="ph">05</span> Kết luận &amp; triển khai ESP32</div>
     <h2 class="title rise d1">Kết luận &amp; <span class="hl">triển khai ESP32</span></h2>
-    <div class="body" style="grid-template-rows:auto 1fr;gap:3cqh">
-      <div class="stats rise d2">
-        <div class="stat" style="--ac:var(--green)"><div class="big">1.0000</div><div class="lbl">parity 24/24 mô hình</div></div>
-        <div class="stat" style="--ac:var(--blue)"><div class="big">~5.5 KB</div><div class="lbl">RAM / 64 KB budget</div></div>
-        <div class="stat" style="--ac:var(--teal)"><div class="big">937 µs</div><div class="lbl">trích đặc trưng / nhịp</div></div>
-        <div class="stat" style="--ac:var(--amber)"><div class="big">Compute</div><div class="lbl">là nút thắt, không phải RAM</div></div>
-      </div>
-      <div class="body cols-6040" style="margin:0;gap:3cqw">
-        <div class="panel rise d3" style="border-left:.7cqh solid var(--green);justify-content:center">
-          <h4 style="color:var(--green)">Chốt hạ</h4>
-          <ul class="pts" style="gap:1.5cqh">
-            <li><span class="tag-win">Winner: SVM linear</span> — 0.193 · 1 ms · 0.2 KB · tái lập</li>
-            <li class="sub2">Phương pháp: sweep năng lực + điểm vận hành + cổng khả thi + trung bình 5 seed</li>
-            <li>Pipeline <b>PC ↔ ESP32 khớp bit-for-bit</b></li>
-          </ul>
+    <div class="body" style="display:flex;flex-direction:column;gap:4cqh;margin-top:3.5cqh">
+      <div class="rise d2">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:2cqh;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:1.6cqh">Kết luận</div>
+        <div style="display:flex;flex-direction:column;gap:1.5cqh;font-size:2.5cqh;line-height:1.4;color:#243640">
+          <div><b>SVM linear</b> là mô hình triển khai — precision 0.193 @ recall 0.95 · 1 ms · 0.2 KB · tất định, tái lập 100%.</div>
+          <div>Quy trình PC ↔ ESP32 khớp <b>bit-for-bit</b> (parity 1.0000), chạy gọn trong tài nguyên ESP32.</div>
+          <div>Precision thấp tại recall 0.95 là <b>trần khó tất yếu</b> của bài toán (mất cân bằng lớp · SVEB gần giống Normal · inter-patient · 1 chuyển đạo), không phải lỗi mô hình.</div>
         </div>
-        <div class="panel rise d4" style="justify-content:center">
-          <h4 style="color:var(--blue)">Hướng phát triển</h4>
-          <ul class="pts" style="gap:1.2cqh">
-            <li style="font-size:2cqh">Lượng tử hoá / cắt tỉa (hiện fp32)</li>
-            <li style="font-size:2cqh">Trích đặc trưng on-device vào RF/SVM</li>
-            <li style="font-size:2cqh">Phân loại đa lớp AAMI (5 lớp)</li>
-          </ul>
+      </div>
+      <div class="rise d3">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:2cqh;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin-bottom:1.6cqh">Hướng phát triển</div>
+        <div style="display:flex;flex-direction:column;gap:1.5cqh;font-size:2.5cqh;line-height:1.4;color:#243640">
+          <div><b>Gộp cảnh báo theo chuỗi (debounce):</b> chỉ báo động khi có N/M nhịp bất thường liên tiếp, không dựa trên một nhịp đơn lẻ — loạn nhịp thật kéo dài nhiều nhịp, nên cách này nâng precision ở mức sự kiện mà gần như không giảm recall. Đòn bẩy mạnh & rẻ nhất.</div>
+          <div><b>Cá nhân hóa ngưỡng (patient-adaptive):</b> ghi nhịp nền của từng bệnh nhân khi bắt đầu theo dõi rồi tinh chỉnh ngưỡng → thu hẹp calibration gap, vẫn chạy hoàn toàn trên thiết bị.</div>
+          <div><b>Lượng tử hóa int8 · đa lớp AAMI:</b> giảm flash/latency ~4× và báo cáo riêng VEB/SVEB — mở rộng năng lực trong cùng ràng buộc một chuyển đạo, on-device.</div>
         </div>
       </div>
     </div>
@@ -1280,25 +1204,12 @@ li b{font-weight:600;color:var(--ink)}
 
 </div><!-- /deck -->
 
-<div class="rail-nav" id="railnav"></div>
-<div class="counter" id="counter"><b>01</b> / 20</div>
-<button class="fsbtn" id="fsbtn">⛶ Toàn màn hình · ← →</button>
 
 <script>
 const deck=document.getElementById('deck');
 const slides=[...document.querySelectorAll('.stage')];
-const railnav=document.getElementById('railnav');
-const counter=document.getElementById('counter');
 const toprog=document.getElementById('toprog');
 let cur=0;
-
-slides.forEach((s,i)=>{
-  const b=document.createElement('button');
-  b.title='Slide '+(i+1);
-  b.onclick=()=>s.scrollIntoView({behavior:'smooth'});
-  railnav.appendChild(b);
-});
-const dots=[...railnav.children];
 
 // auto-number footers so adding/removing slides never breaks the sequence
 const total=slides.length;
@@ -1312,8 +1223,6 @@ const io=new IntersectionObserver((entries)=>{
     if(e.isIntersecting){
       e.target.querySelector('.slide').classList.add('is-active');
       cur=slides.indexOf(e.target);
-      dots.forEach((d,i)=>d.classList.toggle('on',i===cur));
-      counter.innerHTML='<b>'+String(cur+1).padStart(2,'0')+'</b> / '+total;
       toprog.style.width=((cur+1)/slides.length*100)+'%';
     }
   });
@@ -1332,7 +1241,6 @@ addEventListener('keydown',e=>{
   else if(e.key.toLowerCase()==='f'){toggleFS();}
 });
 function toggleFS(){ if(!document.fullscreenElement)document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
-document.getElementById('fsbtn').onclick=toggleFS;
 </script>
 </body>
 </html>

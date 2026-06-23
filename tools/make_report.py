@@ -430,14 +430,14 @@ def main():
          "Bản chất (tỷ lệ thật ngoài đời)", "Không"),
         ("Chia theo bệnh nhân (inter-patient, de Chazal) — test là người chưa từng thấy",
          "Bản chất (trung thực)", "Không — bỏ là ăn gian (rò rỉ)"),
-        ("Hai lớp chồng lấn về SINH HỌC: nhịp SVEB trông gần y hệt nhịp thường",
+        ("Hai lớp chồng lấn về SINH HỌC: SVEB là bất thường nhưng trông gần y hệt nhịp thường",
          "Bản chất", "Không"),
-        ("Ép recall ≥ 0.95 (điểm vận hành hung hãn để không bỏ sót)",
-         "Lựa chọn (lý do lâm sàng)", "Có, nhưng đánh đổi recall"),
-        ("Gộp nhị phân: SVEB (khó) lẫn VEB (dễ) chung một rổ ‘bất thường’",
-         "Một phần lựa chọn, một phần bản chất", "Một phần"),
-        ("Model tí hon + 1 chuyển đạo MLII (ràng buộc ESP32, vứt kênh V1)",
-         "Lựa chọn (ràng buộc phần cứng)", "Có, nhưng phá ràng buộc ESP32"),
+        ("Nhãn L/R trong siêu lớp AAMI N (Normal) bình thường nhưng hình dạng QRS méo bất thường",
+         "Bản chất", "Không"),
+        ("Ép recall ≥ 0.95 → hạ ngưỡng rất thấp → quét nhầm hàng loạt nhịp Normal",
+         "Ràng buộc (lâm sàng)", "Không — yêu cầu an toàn"),
+        ("Mô hình tí hon + 1 chuyển đạo MLII — giới hạn phần cứng ESP32 (không thể tăng size / thêm kênh)",
+         "Ràng buộc (phần cứng)", "Không — ràng buộc đề bài"),
     ]
     for a, b, c in cause_rows:
         cells = ct.add_row().cells

@@ -167,6 +167,46 @@ def easy_vs_hard():
     print("wrote", out)
 
 
+def bbb_vs_normal():
+    """Two-panel overlay mirroring easy_vs_hard, but the AAMI *paradox*: LBBB (L)
+    and RBBB (R) are MORPHOLOGICALLY distorted yet AAMI labels them Normal (0).
+    BBB patients have no normal beats of their own, so we overlay a clean reference
+    sinus beat (record shown) against an L and an R exemplar."""
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+
+    # clean reference normal sinus beat
+    n_rid, n_beat, ns, _ = pick("N")
+
+    # LBBB vs Normal — distorted, but labeled Normal
+    l_rid, l_beat, ls, _ = pick("L")
+    axL.plot(T_MS, n_beat, color="#1f77b4", lw=1.8, label=f"Normal (N) · record {n_rid} @ mẫu {ns:,}")
+    axL.plot(T_MS, l_beat, color="#2ca02c", lw=1.8, label=f"LBBB (L) · record {l_rid} @ mẫu {ls:,}")
+    axL.axvline(0, color="grey", lw=0.6, ls=":")
+    axL.set_title("NGHỊCH LÝ — LBBB méo TO nhưng nhãn 0 (Normal)\nBlock nhánh trái",
+                  fontsize=10)
+    axL.set_xlabel("thời gian (ms)"); axL.set_ylabel("biên độ (z-score)")
+    axL.legend(fontsize=8); axL.grid(alpha=0.25)
+
+    # RBBB vs Normal — distorted, but labeled Normal
+    r_rid, r_beat, rs, _ = pick("R")
+    axR.plot(T_MS, n_beat, color="#1f77b4", lw=1.8, label=f"Normal (N) · record {n_rid} @ mẫu {ns:,}")
+    axR.plot(T_MS, r_beat, color="#9467bd", lw=1.8, label=f"RBBB (R) · record {r_rid} @ mẫu {rs:,}")
+    axR.axvline(0, color="grey", lw=0.6, ls=":")
+    axR.set_title("NGHỊCH LÝ — RBBB méo TO nhưng nhãn 0 (Normal)\nBlock nhánh phải",
+                  fontsize=10)
+    axR.set_xlabel("thời gian (ms)")
+    axR.legend(fontsize=8); axR.grid(alpha=0.25)
+
+    fig.suptitle("Nghịch lý AAMI: LBBB/RBBB hình dạng méo nhưng vẫn nhãn Normal "
+                 "(nhịp thật từ MIT-BIH)", fontsize=12, y=1.01)
+    fig.tight_layout()
+    out = RESULTS_DIR / "beat_lbbb_rbbb_vs_normal.png"
+    fig.savefig(out, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     gallery()
     easy_vs_hard()
+    bbb_vs_normal()
