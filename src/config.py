@@ -37,16 +37,23 @@ CLIP_FRAC = 0.10       # fraction of a beat pinned to the ADC rail => saturated/
 CLEAN_STATS_PATH = RESULTS_DIR / "cleaning_stats.json"
 
 # ---------------- deployment budgets (ESP32 / clinical) ----------------
-# Derived, adjustable. Encode the three problem criteria as hard constraints; see
-# the methodology section of README. A variant is "feasible" iff it satisfies all of
-# these AND a threshold exists on DS1-val reaching TARGET_RECALL.
-LATENCY_BUDGET_MS = 100.0   # per-beat end-to-end (feature extraction + inference).
-                            # Tachycardia ~200 bpm => beats ~300 ms apart; 100 ms gives
-                            # ~3x headroom and "instant" detection. ("near-instant" tier: 50 ms)
+# Derived, adjustable. Encode the problem criteria as hard constraints; see the
+# methodology section of README. A variant is "feasible" iff it satisfies all of these
+# AND a threshold exists on DS1-val reaching TARGET_RECALL. In practice ONLY latency
+# binds: it eliminates exactly cnn_c16-32-64-64 (238ms) and lstm_h32x2 (262ms). Flash
+# and RAM are guardrails set to the real single-model hardware ceiling that no variant
+# approaches (max flash rf_n80_d12 = 1005KB; max RAM ~5.3KB) -- compute speed is the
+# real selector.
+LATENCY_BUDGET_MS = 100.0   # per-beat end-to-end (feature extraction + inference). THE
+                            # binding constraint. Tachycardia ~200 bpm => beats ~300 ms
+                            # apart; 100 ms gives ~3x headroom + "instant" detection.
 TARGET_RECALL = 0.95        # clinical sensitivity floor on the Abnormal class
                             # (missing an abnormal beat is the costliest error)
-FLASH_BUDGET_KB = 1024      # per-model weight footprint ceiling (of 4 MB flash)
-RAM_WORK_BUDGET_KB = 64     # working RAM ceiling (of ~320 KB usable SRAM)
+FLASH_BUDGET_KB = 2048      # per-model weight ceiling for ONE deployed model: 4 MB flash,
+                            # single-app (huge_app) ~3 MB partition minus ~1 MB firmware/
+                            # runtime => ~2 MB free for weights. Non-binding guardrail.
+RAM_WORK_BUDGET_KB = 64     # working RAM ceiling (of ~320 KB usable SRAM). Non-binding
+                            # (every variant uses ~5.3 KB).
 
 # ---------------- de Chazal DS1/DS2 patient split ----------------
 # Paced beats records 102/104/107/217 excluded.
