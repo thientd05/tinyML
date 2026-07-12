@@ -106,7 +106,7 @@ ngưỡng* (recall thực tế khi dùng ngưỡng dò trên DS1). Quality lấy
   annotation không-phải-nhịp); (3) căn cửa sổ vào **đỉnh R thật** (±15 mẫu); (4) lọc nhịp
   **vật lý hỏng** (flatline/clipping) theo tiêu chí tín hiệu — KHÔNG theo nhãn, KHÔNG theo
   biên độ. Thực tế chỉ loại vài nhịp (DS2 mất 0 → không cherry-pick test). Chi tiết + bảng
-  trước/sau: `tools/inspect_dataset.py`, `results/cleaning_stats.json`, mục 2 của báo cáo.
+  trước/sau: `results/cleaning_stats.json`, mục 2 của báo cáo.
 - **Dataset**: MIT-BIH Arrhythmia DB (PhysioNet), tự tải qua `wfdb` lần chạy đầu, cache
   vào `dataset/cache/mitbih_<mode>_v2.npz` (key `v2` = phiên bản làm sạch).
 
@@ -133,8 +133,6 @@ trưng được **đo thật trên ESP32** (db4+FFT, ~0.94ms/nhịp) và cộng 
 python3.10 -m venv env && source env/bin/activate
 pip install -r requirements.txt
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
-
-PYTHONPATH=. python tools/inspect_dataset.py   # (tùy chọn) khảo sát lead/RR/nhiễu trước khi làm sạch
 
 python -m src.models.rf   # Random Forest      python -m src.models.cnn   # 1D CNN (GPU)
 python -m src.models.svm  # SVM (linear + RBF)  python -m src.models.lstm  # LSTM (GPU)

@@ -17,6 +17,10 @@ model/
 .idea/
 .DS_Store
 
+# everything outside the core pipeline (slides + their generators, dataset probe):
+# kept locally, never pushed
+non_core/
+
 # misc
 prompt.xml
 slide.pptx
