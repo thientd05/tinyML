@@ -9,6 +9,17 @@ typedef struct {
   const float *thr, *leaf_p1;
 } RFCfg;
 
+// Gradient-boosted trees. Same node layout as RFCfg, but the traversal differs in two
+// ways that BOTH matter for parity: XGBoost splits on strict `<` (sklearn uses `<=`),
+// and leaves hold raw logits that are SUMMED onto base_logit (the RF averages leaf
+// probabilities). Kept a separate struct so the RF kernel stays branch-free.
+typedef struct {
+  int n_trees, n_feat;
+  const int *node_off, *feature, *left, *right;   // node ids are local to each tree
+  const float *thr, *leaf;                        // leaf = logit contribution
+  float base_logit;                               // logit(base_score)
+} XGBCfg;
+
 typedef struct {
   int kind, n_feat;                  // kind: 0 = linear+calibration, 1 = RBF
   const float *mean, *scale;         // StandardScaler
@@ -32,3 +43,15 @@ typedef struct {
   const int *wih_off, *whh_off;
   const float *wih, *whh, *bih, *bhh, *head_w, *head_b;
 } LSTMCfg;
+
+// CNN-LSTM hybrid: the conv stack of CNNCfg (BN folded, same kernel) feeding a 1-layer
+// LSTM. The recurrent part runs over `seq_len` = in_len >> n_conv timesteps whose input
+// vector is the `lstm_in` conv channels at that timestep — note the conv activations are
+// stored CHANNEL-major, so the kernel gathers x_t with a stride of seq_len.
+typedef struct {
+  int n_conv, k, pad, in_len;
+  const int *in_ch, *out_ch, *w_off, *b_off;
+  const float *conv_w, *conv_b;
+  int seq_len, lstm_in, hidden;
+  const float *wih, *whh, *bih, *bhh, *head_w, *head_b;
+} CRNNCfg;

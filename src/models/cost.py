@@ -35,6 +35,26 @@ def rf_cost(model) -> dict:
     }
 
 
+def xgb_cost(model) -> dict:
+    """XGBoost: same traversal cost model as the RF (compare-and-branch per level, 20
+    bytes per node on flash), so the bagging-vs-boosting curves share one cost axis.
+    Boosted trees are shallower but every tree is always visited, exactly like the RF."""
+    from src.models.xgb.estimator import tree_arrays  # lazy: keeps xgboost off other paths
+
+    trees = tree_arrays(model)
+    n_nodes = int(sum(len(t["feature"]) for t in trees))
+    n_trees = len(trees)
+    mean_depth = float(np.mean([t["depth"] for t in trees]))
+    return {
+        "n_params": n_nodes,
+        "n_nodes": n_nodes,
+        "n_trees": n_trees,
+        "mean_depth": mean_depth,
+        "macs": float(n_trees * mean_depth),      # comparisons/beat (compute proxy)
+        "flash_bytes": int(n_nodes * 20),
+    }
+
+
 def svm_cost(pipe, n_feat: int) -> dict:
     """SVM: RBF compute proxy = n_sv * n_feat kernel-distance MACs; linear = n_feat."""
     clf = pipe.named_steps["clf"]
@@ -72,6 +92,28 @@ def cnn_cost(channels, fc, in_len: int = 200, n_classes: int = 2, k: int = 5) ->
         macs += prev * n_classes
         n_params += prev * n_classes + n_classes
     return {"n_params": int(n_params), "macs": float(macs), "flash_bytes": int(n_params * 4)}
+
+
+def crnn_cost(channels, hidden: int, in_len: int = 200, n_classes: int = 2,
+              k: int = 5) -> dict:
+    """CNN-LSTM hybrid: conv-stack MACs (as cnn_cost) + a single LSTM layer run over the
+    POOLED feature map — in_len/2**n_conv timesteps of channels[-1] inputs, not 100
+    timesteps of a scalar. Deeper conv fronts shorten the recurrent part, which is why
+    the hybrid can undercut the plain LSTM on latency."""
+    macs = 0
+    n_params = 0
+    L, prev = in_len, 1
+    for c in channels:
+        macs += c * prev * k * L
+        n_params += c * prev * k + c   # conv weights + bias (BN folded into these)
+        prev = c
+        L //= 2
+    n_params += 4 * hidden * prev + 4 * hidden * hidden + 8 * hidden
+    macs += L * (4 * hidden * prev + 4 * hidden * hidden)
+    n_params += hidden * n_classes + n_classes
+    macs += hidden * n_classes
+    return {"n_params": int(n_params), "macs": float(macs), "flash_bytes": int(n_params * 4),
+            "seq_len": int(L), "lstm_in": int(prev)}
 
 
 def lstm_cost(hidden: int, layers: int, seq_len: int = 100,

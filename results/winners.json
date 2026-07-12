@@ -1,9 +1,11 @@
 {
   "within": {
     "rf": "n10_d5",
+    "xgb": "x50_d2",
     "svm": "linear",
     "cnn": "c8-16",
-    "lstm": "h8"
+    "lstm": "h8",
+    "crnn": "c16-32-32_h32"
   },
   "cross": [
     "svm",

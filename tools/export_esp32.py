@@ -1,14 +1,18 @@
-"""Export every checkpoint (4 families x capacity sweep) to plain-C headers for the ESP32.
+"""Export every checkpoint (6 families x capacity sweep) to plain-C headers for the ESP32.
 
 For each model we:
   1. load the checkpoint,
   2. reproduce its forward pass (label + a monotonic score) in pure NumPy,
-  3. assert the NumPy labels match sklearn/torch `.predict` on the embedded samples
-     (parity gate), and
+  3. assert the NumPy labels match sklearn/xgboost/torch `.predict` on the embedded
+     samples (parity gate), and
   4. emit weights + config tables into esp32/include/*.h, plus the shared DS2 sample set.
 
-We also print the full PC metrics (acc/precision/recall/f1/auc) on the 400-sample
-subset so the on-device numbers can be cross-checked.
+All 36 models are emitted; the firmware picks a subset per build group via -DINC_<FAMILY>
+(the weights no longer fit one 3 MB partition — see esp32/platformio.ini). MODEL_FAM ids
+are FIXED and must match the Family enum in esp32/src/main.cpp.
+
+We also print the PC metrics (acc/precision/recall/f1/auc) on the embedded subset so the
+on-device numbers can be cross-checked.
 
 Run (from repo root):  PYTHONPATH=. ./env/bin/python tools/export_esp32.py
 """
@@ -26,10 +30,15 @@ from src.data import build_dataset
 from src.evaluation import compute_metrics
 from src.io import model_path
 from src.models.cnn import SWEEP as CNN_SIZES, ECGCNN
+from src.models.crnn import SWEEP as CRNN_SIZES, ECGCRNN
 from src.models.lstm import SWEEP as LSTM_SIZES, ECGLSTM
 from src.models.rf import SWEEP as RF_SIZES
 from src.models.svm import SWEEP as SVM_SIZES
+from src.models.xgb import SWEEP as XGB_SIZES, base_logit, forward as xgb_forward, tree_arrays
 from src.seeding import set_seed
+
+# family -> id in the firmware's Family enum (main.cpp). Append only; never renumber.
+FAM_ID = {"rf": 0, "svm": 1, "cnn": 2, "lstm": 3, "xgb": 4, "crnn": 5}
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "esp32" / "include"
@@ -107,8 +116,8 @@ def svm_forward(pipe, X):
     return (p >= 0.5).astype(np.int64), p
 
 
-def cnn_layers(sd):
-    """Return list of (folded_w, folded_b) conv layers + a head descriptor."""
+def fold_convs(sd):
+    """BN-folded conv stack (list of (w, b)), shared by the CNN and the CRNN front-end."""
     layers, i = [], 0
     while f"features.{i}.block.0.weight" in sd:
         w = sd[f"features.{i}.block.0.weight"].numpy()
@@ -120,6 +129,30 @@ def cnn_layers(sd):
         s = g / np.sqrt(rv + BN_EPS)
         layers.append((w * s[:, None, None], s * (b - rm) + be))
         i += 1
+    return layers
+
+
+def conv_stack(layers, x):
+    """Run the Conv-ReLU-MaxPool stack on one beat -> channel-major activations [C, L']."""
+    a = x[None, :]
+    for (w, b) in layers:
+        oc, k = w.shape[0], w.shape[2]
+        pad = k // 2
+        L = a.shape[1]
+        ap = np.pad(a, ((0, 0), (pad, pad)))
+        conv = np.empty((oc, L))
+        for c in range(oc):
+            for t in range(L):
+                conv[c, t] = np.sum(ap[:, t:t + k] * w[c]) + b[c]
+        conv = np.maximum(conv, 0.0)
+        Lh = L // 2
+        a = conv[:, :Lh * 2].reshape(oc, Lh, 2).max(2)
+    return a
+
+
+def cnn_layers(sd):
+    """Return list of (folded_w, folded_b) conv layers + a head descriptor."""
+    layers = fold_convs(sd)
     if "head.1.weight" in sd:   # Flatten -> Linear -> ReLU -> Dropout -> Linear
         head = ("fc", sd["head.1.weight"].numpy(), sd["head.1.bias"].numpy(),
                 sd["head.4.weight"].numpy(), sd["head.4.bias"].numpy())
@@ -131,24 +164,31 @@ def cnn_layers(sd):
 def cnn_forward(layers, head, X):
     preds, scores = [], []
     for x in X:
-        a = x[None, :]
-        for (w, b) in layers:
-            oc, k = w.shape[0], w.shape[2]
-            pad = k // 2
-            L = a.shape[1]
-            ap = np.pad(a, ((0, 0), (pad, pad)))
-            conv = np.empty((oc, L))
-            for c in range(oc):
-                for t in range(L):
-                    conv[c, t] = np.sum(ap[:, t:t + k] * w[c]) + b[c]
-            conv = np.maximum(conv, 0.0)
-            Lh = L // 2
-            a = conv[:, :Lh * 2].reshape(oc, Lh, 2).max(2)
+        a = conv_stack(layers, x)
         if head[0] == "gap":
             logits = head[1] @ a.mean(1) + head[2]
         else:
             h = np.maximum(head[1] @ a.reshape(-1) + head[2], 0.0)
             logits = head[3] @ h + head[4]
+        preds.append(int(np.argmax(logits)))
+        scores.append(float(logits[1] - logits[0]))
+    return np.array(preds, np.int64), np.array(scores)
+
+
+def crnn_forward(convs, lstm_layers_, hw, hb, X):
+    """Conv front-end, then one LSTM pass over the pooled map, classify on the last h."""
+    (Wih, Whh, bih, bhh) = lstm_layers_[0]
+    H = Whh.shape[1]
+    preds, scores = [], []
+    for x in X:
+        a = conv_stack(convs, x)                # [C, T]
+        h = np.zeros(H); c = np.zeros(H)
+        for t in range(a.shape[1]):
+            g = Wih @ a[:, t] + bih + Whh @ h + bhh
+            gi, gf, gg, go = g[:H], g[H:2 * H], g[2 * H:3 * H], g[3 * H:]
+            c = sig(gf) * c + sig(gi) * np.tanh(gg)
+            h = sig(go) * np.tanh(c)
+        logits = hw @ h + hb
         preds.append(int(np.argmax(logits)))
         scores.append(float(logits[1] - logits[0]))
     return np.array(preds, np.int64), np.array(scores)
@@ -196,6 +236,12 @@ def torch_lstm_pred(hidden, layers, sd, X):
         return m(torch.from_numpy(X).float().unsqueeze(-1)).argmax(1).numpy()
 
 
+def torch_crnn_pred(channels, hidden, sd, X):
+    m = ECGCRNN(channels, hidden); m.load_state_dict(sd); m.eval()
+    with torch.no_grad():
+        return m(torch.from_numpy(X).float().unsqueeze(1)).argmax(1).numpy()
+
+
 # ---------------- main ----------------
 def main():
     set_seed(SEED)
@@ -218,6 +264,17 @@ def main():
         rf_h += _emit_rf(k, m, nf); rf_cfg.append((k, len(m.estimators_), nf))
     rf_h += _rf_table(rf_cfg)
     (OUT / "model_rf.h").write_text(rf_h)
+
+    xgb_h = banner("XGBoost: capacity sweep (strict '<' splits, leaf logits summed)"); xgb_cfg = []
+    for k, (sz, _n, _d) in enumerate(XGB_SIZES):
+        m = joblib.load(model_path("xgb", sz, "pkl"))
+        trees, b0 = tree_arrays(m), base_logit(m)
+        pred, score = xgb_forward(trees, b0, feat)
+        assert np.array_equal(pred, m.predict(feat)), f"XGB {sz} parity FAIL"
+        print(metrics_row(f"xgb_{sz}", y_true, pred, score)); preds_all.append(pred)
+        xgb_h += _emit_xgb(k, trees); xgb_cfg.append((k, len(trees), nf, b0))
+    xgb_h += _xgb_table(xgb_cfg)
+    (OUT / "model_xgb.h").write_text(xgb_h)
 
     svm_h = banner("SVM: tiny=linear+calibration, rest=RBF"); svm_cfg = []
     for k, (sz, kernel, _) in enumerate(SVM_SIZES):
@@ -253,9 +310,26 @@ def main():
     lstm_h = f"#define LSTM_BUF {lstm_buf}\n" + lstm_h + _lstm_table(lstm_cfg)
     (OUT / "model_lstm.h").write_text(lstm_h)
 
-    # Model table (firmware order == Y_PC order: RF, SVM, CNN, LSTM, each in sweep order).
-    meta = ([("rf", s[0], 0) for s in RF_SIZES] + [("svm", s[0], 1) for s in SVM_SIZES] +
-            [("cnn", s[0], 2) for s in CNN_SIZES] + [("lstm", s[0], 3) for s in LSTM_SIZES])
+    crnn_h = banner("CRNN: conv front-end (BN folded) -> 1-layer LSTM on the pooled map"); crnn_cfg = []
+    crnn_buf = 0
+    for k, (sz, channels, hidden) in enumerate(CRNN_SIZES):
+        sd = torch.load(model_path("crnn", sz, "pt"), map_location="cpu")
+        convs = fold_convs(sd)
+        lstm_l, hw, hb = lstm_layers(sd)
+        pred, score = crnn_forward(convs, lstm_l, hw, hb, raw)
+        assert np.array_equal(pred, torch_crnn_pred(channels, hidden, sd, raw)), f"CRNN {sz} parity FAIL"
+        print(metrics_row(f"crnn_{sz}", y_true, pred, score)); preds_all.append(pred)
+        h, c, b = _emit_crnn(k, convs, lstm_l, hw, hb, config.BEAT_LEN)
+        crnn_h += h; crnn_cfg.append(c); crnn_buf = max(crnn_buf, b)
+    crnn_h = f"#define CRNN_BUF {crnn_buf}\n" + crnn_h + _crnn_table(crnn_cfg)
+    (OUT / "model_crnn.h").write_text(crnn_h)
+
+    # Model table. Firmware order == Y_PC row order; each model keeps its GLOBAL index so
+    # a build group that compiles only a subset still checks parity against the right row.
+    meta = [(fam, s[0], FAM_ID[fam]) for fam, sizes in
+            (("rf", RF_SIZES), ("xgb", XGB_SIZES), ("svm", SVM_SIZES),
+             ("cnn", CNN_SIZES), ("lstm", LSTM_SIZES), ("crnn", CRNN_SIZES))
+            for s in sizes]
     _emit_test_data(nf, y_true, feat, raw, seq, np.array(preds_all), meta)
     print(f"[export] all parity gates passed; headers written to {OUT}")
 
@@ -279,6 +353,25 @@ def _rf_table(cfg):
     rows = ",\n".join(f"  {{{n}, {nf}, RF{k}_OFF, RF{k}_FEAT, RF{k}_L, RF{k}_R, RF{k}_THR, RF{k}_P1}}"
                       for (k, n, nf) in cfg)
     return f"static const RFCfg RF_CFG[{len(cfg)}] = {{\n{rows}\n}};\n"
+
+
+def _emit_xgb(k, trees):
+    """Same node layout as the RF, but leaves carry logit contributions (already shrunk by
+    the learning rate) instead of class probabilities."""
+    feat, thr, left, right, leaf, off = [], [], [], [], [], [0]
+    for t in trees:
+        feat += t["feature"]; thr += t["thr"]; left += t["left"]
+        right += t["right"]; leaf += t["leaf"]
+        off.append(off[-1] + len(t["feature"]))
+    return (arr(f"XGB{k}_OFF", off, "int") + arr(f"XGB{k}_FEAT", feat, "int") + arr(f"XGB{k}_THR", thr) +
+            arr(f"XGB{k}_L", left, "int") + arr(f"XGB{k}_R", right, "int") + arr(f"XGB{k}_LEAF", leaf))
+
+
+def _xgb_table(cfg):
+    rows = ",\n".join(
+        f"  {{{n}, {nf}, XGB{k}_OFF, XGB{k}_FEAT, XGB{k}_L, XGB{k}_R, XGB{k}_THR, "
+        f"XGB{k}_LEAF, {b0:.8e}f}}" for (k, n, nf, b0) in cfg)
+    return f"static const XGBCfg XGB_CFG[{len(cfg)}] = {{\n{rows}\n}};\n"
 
 
 def _emit_svm(k, pipe, nf):
@@ -357,6 +450,34 @@ def _lstm_table(rows):
     return f"static const LSTMCfg LSTM_CFG[{len(rows)}] = {{\n" + ",\n".join(rows) + "\n};\n"
 
 
+def _emit_crnn(k, convs, lstm_l, hw, hb, in_len):
+    in_ch, out_ch, w_off, b_off, W, B = [], [], [0], [0], [], []
+    L = in_len; buf = 0
+    for (w, b) in convs:
+        in_ch.append(w.shape[1]); out_ch.append(w.shape[0])
+        W.append(w.ravel()); B.append(b)
+        w_off.append(w_off[-1] + w.size); b_off.append(b_off[-1] + b.size)
+        L //= 2
+        buf = max(buf, w.shape[0] * L)        # pooled activation size (channel-major)
+    K = convs[0][0].shape[2]
+    Wih, Whh, bih, bhh = lstm_l[0]            # CRNN is always a single LSTM layer
+    H = Whh.shape[1]
+    h = (arr(f"CRNN{k}_W", np.concatenate(W)) + arr(f"CRNN{k}_B", np.concatenate(B)) +
+         arr(f"CRNN{k}_INCH", in_ch, "int") + arr(f"CRNN{k}_OUTCH", out_ch, "int") +
+         arr(f"CRNN{k}_WOFF", w_off, "int") + arr(f"CRNN{k}_BOFF", b_off, "int") +
+         arr(f"CRNN{k}_WIH", Wih) + arr(f"CRNN{k}_WHH", Whh) +
+         arr(f"CRNN{k}_BIH", bih) + arr(f"CRNN{k}_BHH", bhh) +
+         arr(f"CRNN{k}_HW", hw) + arr(f"CRNN{k}_HB", hb))
+    row = (f"  {{{len(convs)}, {K}, {K // 2}, {in_len}, CRNN{k}_INCH, CRNN{k}_OUTCH, "
+           f"CRNN{k}_WOFF, CRNN{k}_BOFF, CRNN{k}_W, CRNN{k}_B, {L}, {out_ch[-1]}, {H}, "
+           f"CRNN{k}_WIH, CRNN{k}_WHH, CRNN{k}_BIH, CRNN{k}_BHH, CRNN{k}_HW, CRNN{k}_HB}}")
+    return h, row, buf
+
+
+def _crnn_table(rows):
+    return f"static const CRNNCfg CRNN_CFG[{len(rows)}] = {{\n" + ",\n".join(rows) + "\n};\n"
+
+
 def _emit_test_data(nf, y_true, feat, raw, seq, preds_all, meta):
     h = banner("Embedded DS2 sample set (shared by all models)")
     h += f"#define N_SAMPLES {len(y_true)}\n#define N_FEAT {nf}\n#define NUM_MODELS {len(preds_all)}\n"
@@ -365,7 +486,7 @@ def _emit_test_data(nf, y_true, feat, raw, seq, preds_all, meta):
     h += arr("Y_PC", preds_all, "int")   # [NUM_MODELS * N_SAMPLES], firmware order
     # model table (firmware builds the dispatch list from this, so it scales with the sweep)
     names = ", ".join(f'"{fam}_{label}"' for (fam, label, _) in meta)
-    fams = ", ".join(str(f) for (_, _, f) in meta)               # 0=RF 1=SVM 2=CNN 3=LSTM
+    fams = ", ".join(str(f) for (_, _, f) in meta)               # see FAM_ID / Family enum
     subs, ctr = [], {}
     for (_, _, f) in meta:
         subs.append(ctr.get(f, 0)); ctr[f] = ctr.get(f, 0) + 1   # index within family

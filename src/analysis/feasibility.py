@@ -1,14 +1,16 @@
 """Enrich rows with on-device latency/RAM and apply the hard feasibility gate.
 
-Per-beat LATENCY and working RAM come from the ESP32 benchmark log. RF/SVM get the
-measured feature-extraction cost added to inference latency so cross-family "detection
-time" is apples-to-apples (CNN/LSTM eat raw beats, feature cost = 0).
+Per-beat LATENCY and working RAM come from the ESP32 benchmark log. The feature-based
+families get the measured feature-extraction cost added to inference latency so
+cross-family "detection time" is apples-to-apples (the raw-beat nets eat the beat
+directly, feature cost = 0).
 """
 from __future__ import annotations
 
 import math
 
 from src import config
+from src.analysis.common import FEATURE_FAMILIES
 
 
 def enrich(rows: list[dict], latency: dict, feature_us: float | None) -> None:
@@ -16,8 +18,9 @@ def enrich(rows: list[dict], latency: dict, feature_us: float | None) -> None:
         # firmware prints full names ("{family}_{label}"); JSON rows key on bare label
         lat = latency.get(f"{r['family']}_{r['size']}") or latency.get(r["size"])
         r["infer_us"] = lat["us_beat"] if lat else float("nan")
-        # feature extraction (wavelet db4 + FFT) only feeds RF/SVM; raw-beat nets pay 0.
-        r["feature_us"] = (feature_us or 0.0) if r["family"] in ("rf", "svm") else 0.0
+        # feature extraction (wavelet db4 + FFT) only feeds the feature-based families
+        # (RF/XGB/SVM); the raw-beat nets (CNN/LSTM/CRNN) pay 0.
+        r["feature_us"] = (feature_us or 0.0) if r["family"] in FEATURE_FAMILIES else 0.0
         r["latency_ms"] = (r["infer_us"] + r["feature_us"]) / 1000.0
         r["ram_kb"] = (lat["heap_b"] / 1024.0) if lat else float("nan")
 

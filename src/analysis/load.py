@@ -12,14 +12,17 @@ from pathlib import Path
 from src import config
 from src.analysis.common import FAMILIES
 from src.models.cnn.sweep import SWEEP as CNN_SWEEP
+from src.models.crnn.sweep import SWEEP as CRNN_SWEEP
 from src.models.lstm.sweep import SWEEP as LSTM_SWEEP
 from src.models.rf.sweep import SWEEP as RF_SWEEP
 from src.models.svm.sweep import SWEEP as SVM_SWEEP
+from src.models.xgb.sweep import SWEEP as XGB_SWEEP
 
 # family -> ordered list of sweep labels (defines plot order + filters out stale files)
 SWEEP_LABELS = {
-    "rf": [s[0] for s in RF_SWEEP], "svm": [s[0] for s in SVM_SWEEP],
-    "cnn": [s[0] for s in CNN_SWEEP], "lstm": [s[0] for s in LSTM_SWEEP],
+    "rf": [s[0] for s in RF_SWEEP], "xgb": [s[0] for s in XGB_SWEEP],
+    "svm": [s[0] for s in SVM_SWEEP], "cnn": [s[0] for s in CNN_SWEEP],
+    "lstm": [s[0] for s in LSTM_SWEEP], "crnn": [s[0] for s in CRNN_SWEEP],
 }
 
 

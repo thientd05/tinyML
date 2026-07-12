@@ -24,7 +24,18 @@ from src.io import model_path, save_metrics_json
 from src.models import cost
 from src.models import rf as rf_mod
 from src.models import svm as svm_mod
+from src.models import xgb as xgb_mod
 from src.seeding import set_seed
+
+# raw-beat / recurrent families: (build_dataset mode, net ctor from a sweep row, cost fn)
+NETS = {
+    "cnn": ("raw", lambda mod, e: mod.ECGCNN(e[1], e[2]),
+            lambda e: cost.cnn_cost(e[1], e[2], config.BEAT_LEN)),
+    "lstm": ("lstm", lambda mod, e: mod.ECGLSTM(e[1], e[2], False),
+             lambda e: cost.lstm_cost(e[1], e[2], config.LSTM_SEQ_LEN)),
+    "crnn": ("raw", lambda mod, e: mod.ECGCRNN(e[1], e[2]),
+             lambda e: cost.crnn_cost(e[1], e[2], config.BEAT_LEN)),
+}
 
 
 def _agg(values):
@@ -72,6 +83,21 @@ def run_rf(seeds):
         _finalize("rf", size, recs, models, lambda mdl, p: joblib.dump(mdl, p, compress=3), "pkl")
 
 
+def run_xgb(seeds):
+    Xtr, ytr, Xv, yv, Xte, yte = build_dataset(mode="features")
+    print("[multiseed] XGB")
+    for size, n_est, depth in xgb_mod.SWEEP:
+        recs, models = [], []
+        for sd in seeds:
+            m = xgb_mod.train(xgb_mod.build(n_est, depth, random_state=sd), Xtr, ytr)
+            rec = evaluate_with_operating_point(
+                yv, xgb_mod.scores(m, Xv), yte, xgb_mod.scores(m, Xte))
+            rec.update(family="xgb", size=size, cost=cost.xgb_cost(m))
+            recs.append(rec)
+            models.append(m)
+        _finalize("xgb", size, recs, models, lambda mdl, p: joblib.dump(mdl, p, compress=3), "pkl")
+
+
 def run_svm(seeds):
     Xtr, ytr, Xv, yv, Xte, yte = build_dataset(mode="features")
     n_feat = Xtr.shape[1]
@@ -98,7 +124,7 @@ def run_svm(seeds):
 def run_torch(family, seeds):
     import torch
     mod = importlib.import_module(f"src.models.{family}")
-    mode = "raw" if family == "cnn" else "lstm"
+    mode, make_net, make_cost = NETS[family]
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     Xtr, ytr, Xv, yv, Xte, yte = build_dataset(mode=mode)
     cw = torch.from_numpy(class_weights(ytr))
@@ -108,36 +134,34 @@ def run_torch(family, seeds):
         recs, states = [], []
         for sd in seeds:
             set_seed(sd)
-            if family == "cnn":
-                net = mod.ECGCNN(entry[1], entry[2])
-            else:
-                net = mod.ECGLSTM(entry[1], entry[2], False)
+            net = make_net(mod, entry)
             mod.train_one(net, Xtr, ytr, Xv, yv, device=dev, epochs=15, batch_size=128,
                           lr=1e-3, weight_decay=1e-4, class_weight_t=cw)
             rec = evaluate_with_operating_point(
                 yv, mod.scores(net, Xv, device=dev), yte, mod.scores(net, Xte, device=dev))
-            costfn = cost.cnn_cost(entry[1], entry[2], config.BEAT_LEN) if family == "cnn" \
-                else cost.lstm_cost(entry[1], entry[2], config.LSTM_SEQ_LEN)
-            rec.update(family=family, size=size, cost=costfn)
+            rec.update(family=family, size=size, cost=make_cost(entry))
             recs.append(rec); states.append({k: v.cpu().clone() for k, v in net.state_dict().items()})
         _finalize(family, size, recs, states, torch.save, "pt")
+
+
+RUNNERS = {"rf": run_rf, "xgb": run_xgb, "svm": run_svm}
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=5)
-    ap.add_argument("--families", nargs="*", default=["rf", "svm", "cnn", "lstm"])
+    ap.add_argument("--families", nargs="*",
+                    default=["rf", "xgb", "svm", "cnn", "lstm", "crnn"])
     args = ap.parse_args()
     seeds = list(range(args.seeds))
     print(f"[multiseed] seeds={seeds} families={args.families}")
-    if "rf" in args.families:
-        run_rf(seeds)
-    if "svm" in args.families:
-        run_svm(seeds)
-    if "cnn" in args.families:
-        run_torch("cnn", seeds)
-    if "lstm" in args.families:
-        run_torch("lstm", seeds)
+    for fam in args.families:
+        if fam in RUNNERS:
+            RUNNERS[fam](seeds)
+        elif fam in NETS:
+            run_torch(fam, seeds)
+        else:
+            print(f"[multiseed] WARN unknown family {fam!r}, skipping")
     print("[multiseed] done — re-run analyze to aggregate.")
 
 

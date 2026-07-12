@@ -24,7 +24,8 @@ OUT = RESULTS / "BaoCao_TinyML_ECG.docx"
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)
 GREY = RGBColor(0x59, 0x59, 0x59)
 
-FAM_LABEL = {"rf": "RF", "svm": "SVM", "cnn": "CNN", "lstm": "LSTM"}
+FAM_LABEL = {"rf": "RF", "xgb": "XGBoost", "svm": "SVM", "cnn": "CNN",
+             "lstm": "LSTM", "crnn": "CNN-LSTM"}
 
 
 def load_rows(path=SUMMARY):
@@ -209,8 +210,9 @@ def main():
 
     def drec(fam):  # DS2 recall at the DS1-val-tuned (deployment) threshold
         return float(by_key[(fam, within[fam])]["recall_deploy"]) if fam in within else float("nan")
-    classic_rec = sorted(x for x in (drec("rf"), drec("svm")) if x == x)
-    nn_rec = sorted(x for x in (drec("cnn"), drec("lstm")) if x == x)
+    # feature-based (RF/XGB/SVM) vs raw-beat nets (CNN/LSTM/CRNN)
+    classic_rec = sorted(x for x in (drec("rf"), drec("xgb"), drec("svm")) if x == x)
+    nn_rec = sorted(x for x in (drec("cnn"), drec("lstm"), drec("crnn")) if x == x)
     rec_classic = (f"~{classic_rec[0]:.2f}–{classic_rec[-1]:.2f}" if classic_rec else "n/a")
     rec_nn = (f"~{nn_rec[0]:.2f}–{nn_rec[-1]:.2f}" if len(nn_rec) > 1 else
               (f"~{nn_rec[0]:.2f}" if nn_rec else "n/a"))
@@ -331,7 +333,7 @@ def main():
         set_cell(table.rows[0].cells[j], name, size=9, bold=True)
     style_header_row(table.rows[0])
 
-    fam_order = ["rf", "svm", "cnn", "lstm"]
+    fam_order = ["rf", "xgb", "svm", "cnn", "lstm", "crnn"]
     rows_sorted = sorted(rows, key=lambda r: (fam_order.index(r["family"]), float(r["macs"])))
     for r in rows_sorted:
         cells = table.add_row().cells

@@ -1,5 +1,5 @@
-// ESP32-WROOM-32 benchmark: every ECG model in the capacity sweep (4 families x ~6
-// points) in one firmware, built from the generated model table in test_data.h.
+// ESP32-WROOM-32 benchmark: every ECG model in the capacity sweep (6 families x ~6
+// points) run on-device, built from the generated model table in test_data.h.
 //
 // On boot it runs every model over the small embedded DS2 sample set and prints a table.
 // With N small the per-model acc/prec/recall/f1/auc are only a sanity check — trustworthy
@@ -8,26 +8,54 @@
 //   columns: accuracy, precision, recall, F1, AUC, parity (vs PC, expected 1.0000),
 //   us/beat, per-model peak heap.
 //
+// FLASH: all 36 models' weights (~4.2 MB) no longer fit the 3 MB huge_app partition, so
+// the sweep is split into build GROUPS selected by -DINC_<FAMILY> (see platformio.ini).
+// Each group is flashed in turn and its serial output appended to benchmark_sweep.txt;
+// analyze.py reads the union. Every model keeps its GLOBAL index into Y_PC, so parity
+// stays checkable no matter which subset is compiled in.
+//
 // The generic C kernels mirror the NumPy reproductions in tools/export_esp32.py,
-// which are asserted equal to sklearn/torch at export time.
+// which are asserted equal to sklearn/xgboost/torch at export time.
 
 #include <Arduino.h>
 #include <math.h>
 #include "kernels.h"
 #include "test_data.h"
-#include "model_rf.h"
-#include "model_svm.h"
-#include "model_cnn.h"
-#include "model_lstm.h"
 #include "feature_bench.h"
+#ifdef INC_RF
+#include "model_rf.h"
+#endif
+#ifdef INC_XGB
+#include "model_xgb.h"
+#endif
+#ifdef INC_SVM
+#include "model_svm.h"
+#endif
+#ifdef INC_CNN
+#include "model_cnn.h"
+#endif
+#ifdef INC_LSTM
+#include "model_lstm.h"
+#endif
+#ifdef INC_CRNN
+#include "model_crnn.h"
+#endif
 
 static inline float sigmoidf(float z) { return 1.0f / (1.0f + expf(-z)); }
 
-// scratch buffers (sized by the generators to the largest model)
+// scratch buffers (sized by the generators to the largest model in each family)
+#ifdef INC_CNN
 static float cnnA[CNN_BUF], cnnB[CNN_BUF];
+#endif
+#ifdef INC_LSTM
 static float lstmA[LSTM_BUF], lstmB[LSTM_BUF];
+#endif
+#ifdef INC_CRNN
+static float crnnA[CRNN_BUF], crnnB[CRNN_BUF];
+#endif
 
 // ---------------- Random Forest ----------------
+#ifdef INC_RF
 static int rf_infer(const RFCfg &m, const float *x, float *score) {
   float p1 = 0.0f;
   for (int tr = 0; tr < m.n_trees; tr++) {
@@ -40,8 +68,26 @@ static int rf_infer(const RFCfg &m, const float *x, float *score) {
   *score = p1;
   return p1 > 0.5f ? 1 : 0;
 }
+#endif
+
+// ---------------- XGBoost (boosted trees: strict `<`, leaf logits summed) ----------------
+#ifdef INC_XGB
+static int xgb_infer(const XGBCfg &m, const float *x, float *score) {
+  float margin = m.base_logit;
+  for (int tr = 0; tr < m.n_trees; tr++) {
+    int off = m.node_off[tr], nd = 0;
+    while (m.left[off + nd] != -1)
+      nd = (x[m.feature[off + nd]] < m.thr[off + nd]) ? m.left[off + nd] : m.right[off + nd];
+    margin += m.leaf[off + nd];
+  }
+  float p1 = sigmoidf(margin);
+  *score = p1;
+  return p1 > 0.5f ? 1 : 0;
+}
+#endif
 
 // ---------------- SVM (linear+calibration | RBF) ----------------
+#ifdef INC_SVM
 static int svm_infer(const SVMCfg &m, const float *x, float *score) {
   float xs[N_FEAT];
   for (int i = 0; i < m.n_feat; i++) xs[i] = (x[i] - m.mean[i]) / m.scale[i];
@@ -66,8 +112,10 @@ static int svm_infer(const SVMCfg &m, const float *x, float *score) {
   *score = p;
   return p >= 0.5f ? 1 : 0;
 }
+#endif
 
 // ---------------- 1D CNN (generic depth, GAP or FC head) ----------------
+#ifdef INC_CNN
 static int cnn_infer(const CNNCfg &m, const float *x, float *score) {
   const float *src = x;
   int sc_ch = 1, sc_len = m.in_len;
@@ -120,8 +168,10 @@ static int cnn_infer(const CNNCfg &m, const float *x, float *score) {
   *score = l1 - l0;
   return l1 > l0 ? 1 : 0;
 }
+#endif
 
 // ---------------- LSTM (generic #layers, gate order i,f,g,o) ----------------
+#ifdef INC_LSTM
 static int lstm_infer(const LSTMCfg &m, const float *seq, float *score) {
   const int H = m.hidden, T = m.seq_len;
   float h[64], c[64];
@@ -164,17 +214,122 @@ static int lstm_infer(const LSTMCfg &m, const float *seq, float *score) {
   *score = l1 - l0;
   return l1 > l0 ? 1 : 0;
 }
+#endif
+
+// ---------------- CRNN (CNN front-end -> 1-layer LSTM on the pooled map) ----------------
+#ifdef INC_CRNN
+static int crnn_infer(const CRNNCfg &m, const float *x, float *score) {
+  const float *src = x;                       // conv activations are CHANNEL-major
+  int sc_len = m.in_len;
+  float *dst = crnnA;
+  for (int l = 0; l < m.n_conv; l++) {
+    int oc = m.out_ch[l], ic = m.in_ch[l], out_len = sc_len / 2;
+    const float *w = m.conv_w + m.w_off[l];
+    const float *b = m.conv_b + m.b_off[l];
+    for (int c = 0; c < oc; c++) {
+      for (int p = 0; p < out_len; p++) {
+        float best = -INFINITY;
+        for (int q = 0; q < 2; q++) {         // maxpool over the pair (2p, 2p+1)
+          int t = 2 * p + q;
+          float acc = b[c];
+          for (int i = 0; i < ic; i++)
+            for (int kk = 0; kk < m.k; kk++) {
+              int idx = t + kk - m.pad;
+              if (idx >= 0 && idx < sc_len)
+                acc += w[(c * ic + i) * m.k + kk] * src[i * sc_len + idx];
+            }
+          if (acc < 0.0f) acc = 0.0f;         // relu
+          if (acc > best) best = acc;
+        }
+        dst[c * out_len + p] = best;
+      }
+    }
+    src = dst; sc_len = out_len;
+    dst = (dst == crnnA) ? crnnB : crnnA;
+  }
+
+  const int H = m.hidden, T = m.seq_len, IN = m.lstm_in;
+  float hs[64], cs[64], hn[64];
+  for (int j = 0; j < H; j++) { hs[j] = 0.0f; cs[j] = 0.0f; }
+  for (int t = 0; t < T; t++) {
+    for (int j = 0; j < H; j++) {
+      int ri = j, rf = H + j, rg = 2 * H + j, ro = 3 * H + j;
+      float gi = m.bih[ri] + m.bhh[ri], gf = m.bih[rf] + m.bhh[rf];
+      float gg = m.bih[rg] + m.bhh[rg], go = m.bih[ro] + m.bhh[ro];
+      for (int cc = 0; cc < IN; cc++) {
+        float xv = src[cc * T + t];           // gather channel cc at timestep t
+        gi += m.wih[ri * IN + cc] * xv; gf += m.wih[rf * IN + cc] * xv;
+        gg += m.wih[rg * IN + cc] * xv; go += m.wih[ro * IN + cc] * xv;
+      }
+      for (int kk = 0; kk < H; kk++) {
+        float hv = hs[kk];
+        gi += m.whh[ri * H + kk] * hv; gf += m.whh[rf * H + kk] * hv;
+        gg += m.whh[rg * H + kk] * hv; go += m.whh[ro * H + kk] * hv;
+      }
+      float nc = sigmoidf(gf) * cs[j] + sigmoidf(gi) * tanhf(gg);
+      hn[j] = sigmoidf(go) * tanhf(nc);       // stage; commit after the j-loop
+      cs[j] = nc;
+    }
+    for (int j = 0; j < H; j++) hs[j] = hn[j];
+  }
+  float l0 = m.head_b[0], l1 = m.head_b[1];   // classify on the last hidden state
+  for (int k = 0; k < H; k++) { l0 += m.head_w[k] * hs[k]; l1 += m.head_w[H + k] * hs[k]; }
+  *score = l1 - l0;
+  return l1 > l0 ? 1 : 0;
+}
+#endif
 
 // ---------------- dispatch + driver ----------------
-enum Family { F_RF, F_SVM, F_CNN, F_LSTM };
-struct Entry { const char *name; Family fam; int idx; const float *data; int stride; };
+// Ids are FIXED (the exporter writes them into MODEL_FAM); append, never renumber.
+enum Family { F_RF = 0, F_SVM = 1, F_CNN = 2, F_LSTM = 3, F_XGB = 4, F_CRNN = 5 };
+struct Entry { const char *name; Family fam; int idx; const float *data; int stride; int gid; };
+
+// Is this family compiled into the current build group?
+static bool compiled_in(int fam) {
+  switch (fam) {
+#ifdef INC_RF
+    case F_RF: return true;
+#endif
+#ifdef INC_XGB
+    case F_XGB: return true;
+#endif
+#ifdef INC_SVM
+    case F_SVM: return true;
+#endif
+#ifdef INC_CNN
+    case F_CNN: return true;
+#endif
+#ifdef INC_LSTM
+    case F_LSTM: return true;
+#endif
+#ifdef INC_CRNN
+    case F_CRNN: return true;
+#endif
+    default: return false;
+  }
+}
 
 static int dispatch(const Entry &e, const float *x, float *score) {
   switch (e.fam) {
+#ifdef INC_RF
     case F_RF:   return rf_infer(RF_CFG[e.idx], x, score);
+#endif
+#ifdef INC_XGB
+    case F_XGB:  return xgb_infer(XGB_CFG[e.idx], x, score);
+#endif
+#ifdef INC_SVM
     case F_SVM:  return svm_infer(SVM_CFG[e.idx], x, score);
+#endif
+#ifdef INC_CNN
     case F_CNN:  return cnn_infer(CNN_CFG[e.idx], x, score);
-    default:     return lstm_infer(LSTM_CFG[e.idx], x, score);
+#endif
+#ifdef INC_LSTM
+    case F_LSTM: return lstm_infer(LSTM_CFG[e.idx], x, score);
+#endif
+#ifdef INC_CRNN
+    case F_CRNN: return crnn_infer(CRNN_CFG[e.idx], x, score);
+#endif
+    default: *score = 0.0f; return 0;
   }
 }
 
@@ -227,28 +382,39 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  // Built from the generated model table (test_data.h) so it scales with the sweep.
+  // Built from the generated model table (test_data.h) so it scales with the sweep, then
+  // filtered down to the families compiled into this build group. `gid` keeps the model's
+  // global row in Y_PC so parity is still checked against the right PC predictions.
   Entry models[NUM_MODELS];
+  int n_models = 0;
   for (int i = 0; i < NUM_MODELS; i++) {
     Family fam = (Family)MODEL_FAM[i];
+    if (!compiled_in(fam)) continue;
     int sub = MODEL_SUB[i];
-    const float *data; int stride;
+    const float *data = FEAT; int stride = N_FEAT;   // RF / XGB / SVM: 21-D features
     switch (fam) {
+#ifdef INC_CNN
       case F_CNN:  data = RAW; stride = CNN_CFG[sub].in_len; break;
+#endif
+#ifdef INC_CRNN
+      case F_CRNN: data = RAW; stride = CRNN_CFG[sub].in_len; break;
+#endif
+#ifdef INC_LSTM
       case F_LSTM: data = SEQ; stride = LSTM_CFG[sub].seq_len; break;
-      default:     data = FEAT; stride = N_FEAT; break;   // RF / SVM use the 21-D features
+#endif
+      default: break;
     }
-    models[i] = {MODEL_NAMES[i], fam, sub, data, stride};
+    models[n_models++] = {MODEL_NAMES[i], fam, sub, data, stride, i};
   }
 
   Serial.println();
   Serial.println(F("================== ESP32-WROOM-32  ECG model sweep benchmark =================="));
-  Serial.printf("samples: %d   features: %d   models: %d   free heap: %u B\n",
-                N_SAMPLES, N_FEAT, NUM_MODELS, ESP.getFreeHeap());
+  Serial.printf("samples: %d   features: %d   models in this group: %d/%d   free heap: %u B\n",
+                N_SAMPLES, N_FEAT, n_models, NUM_MODELS, ESP.getFreeHeap());
   Serial.println(F("-------------------------------------------------------------------------------"));
   Serial.println(F("model            | acc    | prec   | recall | f1     | auc    | parity | us/beat | heapB"));
   Serial.println(F("-------------------------------------------------------------------------------"));
-  for (int i = 0; i < NUM_MODELS; i++) run(models[i], i);
+  for (int i = 0; i < n_models; i++) run(models[i], models[i].gid);
   Serial.println(F("-------------------------------------------------------------------------------"));
   // feature-extraction front-end cost (db4 wavelet + FFT). Add this to RF/SVM us/beat for
   // a fair cross-family detection-time comparison (pass it to analyze.py --feature-us).

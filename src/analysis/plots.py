@@ -10,13 +10,20 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src import config
-from src.analysis.common import FAMILIES, RESULTS
+from src.analysis.common import FAMILIES, FEATURE_FAMILIES, RESULTS
 from src.data import build_dataset
 from src.io import model_path
 from src.models.cnn.sweep import SWEEP as CNN_SWEEP
+from src.models.crnn.sweep import SWEEP as CRNN_SWEEP
 from src.models.lstm.sweep import SWEEP as LSTM_SWEEP
 
-MARKERS = {"rf": "o", "svm": "s", "cnn": "^", "lstm": "D"}
+MARKERS = {"rf": "o", "xgb": "P", "svm": "s", "cnn": "^", "lstm": "D", "crnn": "v"}
+# raw-beat family -> (build_dataset mode, net constructor from its sweep row)
+NETS = {
+    "cnn": ("raw", CNN_SWEEP, lambda mod, c: mod.ECGCNN(c[1], c[2])),
+    "lstm": ("lstm", LSTM_SWEEP, lambda mod, c: mod.ECGLSTM(c[1], c[2], False)),
+    "crnn": ("raw", CRNN_SWEEP, lambda mod, c: mod.ECGCRNN(c[1], c[2])),
+}
 
 
 def plot_within_family(rows: list[dict]) -> None:
@@ -72,22 +79,16 @@ def plot_pr_curves(sel: dict) -> None:
     fig, ax = plt.subplots(figsize=(8, 6))
     for fam, w in sel["within"].items():
         try:
-            if fam in ("rf", "svm"):
+            mod = importlib.import_module(f"src.models.{fam}")
+            if fam in FEATURE_FAMILIES:
                 *_, X, y = build_dataset(mode="features")
-                mod = importlib.import_module(f"src.models.{fam}")
                 clf = joblib.load(model_path(fam, w["size"], "pkl"))
                 s = mod.scores(clf, X)
             else:
                 import torch
-                mode = "raw" if fam == "cnn" else "lstm"
+                mode, sweep, make = NETS[fam]
                 *_, X, y = build_dataset(mode=mode)
-                mod = importlib.import_module(f"src.models.{fam}")
-                if fam == "cnn":
-                    cfg = next(c for c in CNN_SWEEP if c[0] == w["size"])
-                    net = mod.ECGCNN(cfg[1], cfg[2])
-                else:
-                    cfg = next(c for c in LSTM_SWEEP if c[0] == w["size"])
-                    net = mod.ECGLSTM(cfg[1], cfg[2], False)
+                net = make(mod, next(c for c in sweep if c[0] == w["size"]))
                 net.load_state_dict(torch.load(model_path(fam, w["size"], "pt"),
                                                map_location="cpu"))
                 s = mod.scores(net, X, device=torch.device("cpu"))
