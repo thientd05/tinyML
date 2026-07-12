@@ -22,8 +22,8 @@ from src.analysis.common import RESULTS
 from src.analysis.feasibility import enrich, feasibility
 from src.analysis.load import load_records, parse_latency
 from src.analysis.plots import plot_cross_pareto, plot_pr_curves, plot_within_family
-from src.analysis.report import print_tables, write_csv, write_winners
 from src.analysis.selection import select_winners
+from src.analysis.writers import print_tables, write_csv, write_winners
 
 
 def main() -> None:

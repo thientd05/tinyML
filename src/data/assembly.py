@@ -3,7 +3,8 @@ input mode, with a clean-version-keyed npz cache and per-split cleaning stats.""
 from __future__ import annotations
 
 import json
-from typing import Iterable, Literal
+from collections.abc import Iterable
+from typing import Literal
 
 import numpy as np
 

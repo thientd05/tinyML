@@ -2,8 +2,9 @@
 
 Reads results/summary.csv, results/winners.json (auto-selected winners, so the
 report never hard-codes them), results/cleaning_stats.json, and the three plots in
-results/, then writes results/BaoCao_TinyML_ECG.docx. Run from repo root:
-    ./env/bin/python3.10 tools/make_report.py
+results/, then writes results/BaoCao_TinyML_ECG.docx — a TEMPLATE, not the live report
+(that is docs/BaoCaoDuAn.docx, hand-maintained). Run from repo root:
+    PYTHONPATH=. ./env/bin/python tools/make_report.py
 """
 import csv
 import json
@@ -177,14 +178,12 @@ def ensure_beat_figures():
     if all(p.exists() for p in needed):
         return
     try:
-        import sys
-        sys.path.insert(0, str(ROOT))
-        from tools import make_beat_figures as mbf
+        from tools import make_beat_figures as mbf  # needs PYTHONPATH=. (as every tool does)
         mbf.gallery()
         mbf.easy_vs_hard()
-    except Exception as e:  # dataset missing / wfdb absent — leave existing pngs or fail loudly later
+    except Exception as e:  # dataset missing / wfdb absent / no PYTHONPATH — warn, don't die
         print(f"[make_report] WARN: could not render beat figures ({e}); "
-              "run tools/make_beat_figures.py manually.")
+              "run: PYTHONPATH=. python tools/make_beat_figures.py")
 
 
 def main():

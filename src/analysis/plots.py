@@ -6,13 +6,14 @@ import importlib
 import math
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src import config
 from src.analysis.common import FAMILIES, FEATURE_FAMILIES, RESULTS
+from src.artifacts import model_path
 from src.data import build_dataset
-from src.io import model_path
 from src.models.cnn.sweep import SWEEP as CNN_SWEEP
 from src.models.crnn.sweep import SWEEP as CRNN_SWEEP
 from src.models.lstm.sweep import SWEEP as LSTM_SWEEP
@@ -59,7 +60,7 @@ def plot_cross_pareto(rows: list[dict], sel: dict) -> None:
         ax.axvspan(0, config.LATENCY_BUDGET_MS, color="green", alpha=0.06)
         ax.axvline(config.LATENCY_BUDGET_MS, color="green", ls="--", lw=1,
                    label=f"latency budget {config.LATENCY_BUDGET_MS:.0f}ms")
-    for fam, w in sel["within"].items():
+    for w in sel["within"].values():
         if not math.isnan(w[xkey]):
             ax.scatter([w[xkey]], [w["precision_op"]], s=260, facecolors="none",
                        edgecolors="black", linewidths=1.8, zorder=5)
@@ -74,8 +75,8 @@ def plot_cross_pareto(rows: list[dict], sel: dict) -> None:
 def plot_pr_curves(sel: dict) -> None:
     """Re-score the feasible winner of each family on DS2 and draw its PR curve with the
     recall>=target operating point marked. Lazy imports so the rest of analyze stays light."""
-    from sklearn.metrics import precision_recall_curve
     import joblib
+    from sklearn.metrics import precision_recall_curve
     fig, ax = plt.subplots(figsize=(8, 6))
     for fam, w in sel["within"].items():
         try:

@@ -25,7 +25,7 @@ def _mlii_channel(record_id: str) -> int:
     return names.index("MLII") if "MLII" in names else 0
 
 
-def _load_record(record_id: str):
+def load_record(record_id: str):
     path = str(MITBIH_DIR / record_id)
     rec = wfdb.rdrecord(path, channels=[_mlii_channel(record_id)])
     ann = wfdb.rdann(path, "atr")

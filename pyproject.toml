@@ -1,0 +1,34 @@
+[project]
+name = "pr-tinyml"
+version = "1.0.0"
+description = "ECG anomaly detection on ESP32: six model families swept, gated on a clinical operating point, converted to plain C and benchmarked on-device."
+readme = "README.md"
+requires-python = ">=3.10"
+
+# Runtime dependencies are pinned in requirements.txt (PyTorch needs a custom
+# wheel index, so a plain requirements file remains the install path). This
+# section exists so the repo has standard project metadata and one place for
+# tool configuration.
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["env", "dataset", "model", "esp32/.pio", "non_core"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort — import order
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "A",   # builtins shadowing (this is what flagged the old src/io.py)
+]
+ignore = [
+    "E501",  # line length — enforced by the formatter, not the linter
+    "B905",  # zip(..., strict=) — noise on this codebase's numpy-adjacent loops
+    "E702",  # `a = 1; b = 2` — a deliberate, consistent style here for paired statements
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # re-export surface: each subpackage re-exports on purpose

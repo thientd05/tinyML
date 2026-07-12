@@ -26,15 +26,20 @@ import torch
 from sklearn.svm import SVC
 
 from src import config
+from src.artifacts import model_path
 from src.data import build_dataset
 from src.evaluation import compute_metrics
-from src.io import model_path
-from src.models.cnn import SWEEP as CNN_SIZES, ECGCNN
-from src.models.crnn import SWEEP as CRNN_SIZES, ECGCRNN
-from src.models.lstm import SWEEP as LSTM_SIZES, ECGLSTM
+from src.models.cnn import ECGCNN
+from src.models.cnn import SWEEP as CNN_SIZES
+from src.models.crnn import ECGCRNN
+from src.models.crnn import SWEEP as CRNN_SIZES
+from src.models.lstm import ECGLSTM
+from src.models.lstm import SWEEP as LSTM_SIZES
 from src.models.rf import SWEEP as RF_SIZES
 from src.models.svm import SWEEP as SVM_SIZES
-from src.models.xgb import SWEEP as XGB_SIZES, base_logit, forward as xgb_forward, tree_arrays
+from src.models.xgb import SWEEP as XGB_SIZES
+from src.models.xgb import base_logit, tree_arrays
+from src.models.xgb import forward as xgb_forward
 from src.seeding import set_seed
 
 # family -> id in the firmware's Family enum (main.cpp). Append only; never renumber.
@@ -51,7 +56,9 @@ OUT.mkdir(parents=True, exist_ok=True)
 N_SAMPLES = 20
 SEED = 42
 BN_EPS = 1e-5
-sig = lambda z: 1.0 / (1.0 + np.exp(-z))
+def sig(z):
+    return 1.0 / (1.0 + np.exp(-z))
+
 
 
 # ---------------- C emission ----------------
@@ -256,7 +263,7 @@ def main():
     preds_all = []   # one row of length N per model, in firmware order
 
     rf_h = banner("Random Forest: capacity sweep"); rf_cfg = []
-    for k, (sz, n_est, depth) in enumerate(RF_SIZES):
+    for k, (sz, _n_est, _depth) in enumerate(RF_SIZES):
         m = joblib.load(model_path("rf", sz, "pkl"))
         pred, score = rf_forward(m, feat)
         assert np.array_equal(pred, m.predict(feat)), f"RF {sz} parity FAIL"
@@ -277,7 +284,7 @@ def main():
     (OUT / "model_xgb.h").write_text(xgb_h)
 
     svm_h = banner("SVM: tiny=linear+calibration, rest=RBF"); svm_cfg = []
-    for k, (sz, kernel, _) in enumerate(SVM_SIZES):
+    for k, (sz, _kernel, _) in enumerate(SVM_SIZES):
         pipe = joblib.load(model_path("svm", sz, "pkl"))
         pred, score = svm_forward(pipe, feat)
         assert np.array_equal(pred, pipe.predict(feat)), f"SVM {sz} parity FAIL"

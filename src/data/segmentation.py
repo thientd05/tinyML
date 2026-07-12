@@ -10,7 +10,7 @@ from src.config import (
     NORMAL_SYMBOLS,
     REALIGN_WINDOW,
 )
-from src.data.preprocess import _is_artifact, _load_record, _rail_mask
+from src.data.preprocess import _is_artifact, _rail_mask, load_record
 
 
 def aami_binary_label(symbol: str) -> int | None:
@@ -21,14 +21,14 @@ def aami_binary_label(symbol: str) -> int | None:
 
 def extract_beats(record_id: str, drop_artifacts: bool = True, stats: dict | None = None):
     """Return list of (beat[200], rr_prev, rr_post, label) for one record, cleaned (v2):
-      * lead selected by name (MLII) in _load_record (fixes record 114)
+      * lead selected by name (MLII) in load_record (fixes record 114)
       * R-peak re-aligned to the local |signal| max within +/-REALIGN_WINDOW
       * RR intervals measured between consecutive BEATS (non-beat annotations skipped)
       * physically-unusable beats dropped (flatline / clipping) when drop_artifacts
 
     `stats` (optional) accumulates: total / kept / dropped_edge / dropped_artifact
     (+ dropped_artifact_by_label, for the no-class-bias audit in the report)."""
-    sig, raw, ann = _load_record(record_id)
+    sig, raw, ann = load_record(record_id)
     samples, symbols = ann.sample, ann.symbol
     rail = _rail_mask(raw)
     # keep only real beats with their (annotated sample, label); RR is computed on THIS

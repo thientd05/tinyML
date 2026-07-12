@@ -5,12 +5,12 @@ import argparse
 
 import torch
 
+from src.artifacts import model_path, save_metrics_json
 from src.config import BEAT_LEN, TARGET_RECALL
 from src.data import build_dataset
 from src.evaluation import class_weights, evaluate_with_operating_point
-from src.io import model_path, save_metrics_json
 from src.models import cost
-from src.models.cnn import EXT, MODEL_NAME, SWEEP, ECGCNN, scores, train_one
+from src.models.cnn import ECGCNN, EXT, MODEL_NAME, SWEEP, scores, train_one
 from src.seeding import set_seed
 
 

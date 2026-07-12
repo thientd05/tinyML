@@ -8,19 +8,16 @@ Outputs (results/):
   beat_easy_vs_hard.png        — within-patient Normal-vs-VEB (easy) and
                                  Normal-vs-SVEB (hard) overlays
 
-Run from repo root:  PYTHONPATH=. ./env/bin/python3.10 tools/make_beat_figures.py
+Run from repo root:  PYTHONPATH=. ./env/bin/python tools/make_beat_figures.py
 """
-import sys
-from pathlib import Path
-
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+matplotlib.use("Agg")            # must precede the pyplot import — headless rendering
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+
 from src.config import BEAT_HALF, FS, REALIGN_WINDOW, RESULTS_DIR  # noqa: E402
-from src.data.preprocess import _load_record  # noqa: E402
+from src.data import load_record  # noqa: E402
 
 # x-axis in milliseconds, R-peak at 0
 T_MS = (np.arange(2 * BEAT_HALF) - BEAT_HALF) / FS * 1000.0
@@ -59,7 +56,7 @@ def _realigned_window(sig, s):
 
 def collect_beats(record_id, symbol, want=40):
     """Return list of (beat, ann_sample) for `symbol` in this record."""
-    sig, _raw, ann = _load_record(record_id)
+    sig, _raw, ann = load_record(record_id)
     out = []
     for s, sym in zip(ann.sample, ann.symbol):
         if sym != symbol:

@@ -11,7 +11,7 @@ from src.data.assembly import (
 from src.data.benchmark import feature_extract_benchmark
 from src.data.download import download_mitbih
 from src.data.features import extract_features
-from src.data.preprocess import bandpass_filter
+from src.data.preprocess import bandpass_filter, load_record
 from src.data.segmentation import aami_binary_label, extract_beats
 
 __all__ = [
@@ -23,4 +23,5 @@ __all__ = [
     "extract_beats",
     "extract_features",
     "feature_extract_benchmark",
+    "load_record",
 ]

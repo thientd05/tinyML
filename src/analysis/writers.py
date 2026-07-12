@@ -45,9 +45,9 @@ def write_csv(rows: list[dict]) -> Path:
 
 
 def print_tables(rows: list[dict], sel: dict) -> None:
-    print(f"\n=== Capacity sweep on DS2 ===")
+    print("\n=== Capacity sweep on DS2 ===")
     print(f"  prec@{config.TARGET_RECALL:g} = precision at target recall measured on DS2 (capability)")
-    print(f"  rec_dep = DS2 recall at the DS1-val-tuned threshold (deployment; '!' = below target)")
+    print("  rec_dep = DS2 recall at the DS1-val-tuned threshold (deployment; '!' = below target)")
     print(f"  budgets: latency<={config.LATENCY_BUDGET_MS:.0f}ms  flash<={config.FLASH_BUDGET_KB}KB  "
           f"target recall={config.TARGET_RECALL}\n")
     hdr = (f"  {'variant':<16} {'macs':>9} {'flash':>7} {'lat_ms':>8} "

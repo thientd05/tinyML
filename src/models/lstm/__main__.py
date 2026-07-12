@@ -1,13 +1,16 @@
 """CLI entrypoint: train/load the LSTM capacity sweep and dump per-variant metrics."""
 from __future__ import annotations
+
 import argparse
+
 import torch
+
+from src.artifacts import model_path, save_metrics_json
 from src.config import LSTM_SEQ_LEN, TARGET_RECALL
 from src.data import build_dataset
 from src.evaluation import class_weights, evaluate_with_operating_point
-from src.io import model_path, save_metrics_json
 from src.models import cost
-from src.models.lstm import EXT, MODEL_NAME, SWEEP, ECGLSTM, scores, train_one
+from src.models.lstm import ECGLSTM, EXT, MODEL_NAME, SWEEP, scores, train_one
 from src.seeding import set_seed
 
 

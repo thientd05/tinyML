@@ -7,7 +7,7 @@ Run:
 
 Saves model/cnn_<size>.pt (state_dict); metrics as cnn_<size>_metrics.json.
 """
-from src.models.cnn.architecture import ConvBlock, ECGCNN
+from src.models.cnn.architecture import ECGCNN, ConvBlock
 from src.models.cnn.inference import n_params, scores
 from src.models.cnn.sweep import SWEEP
 from src.models.cnn.training import make_loader, train_one

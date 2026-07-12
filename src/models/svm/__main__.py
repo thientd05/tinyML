@@ -5,10 +5,10 @@ import argparse
 
 import joblib
 
+from src.artifacts import model_path, save_metrics_json
 from src.config import TARGET_RECALL
 from src.data import build_dataset
 from src.evaluation import evaluate_with_operating_point
-from src.io import model_path, save_metrics_json
 from src.models import cost
 from src.models.svm import EXT, MODEL_NAME, SWEEP, build, scores, stratified_subsample, train
 from src.seeding import set_seed
