@@ -40,10 +40,11 @@ CLEAN_STATS_PATH = RESULTS_DIR / "cleaning_stats.json"
 # Derived, adjustable. Encode the problem criteria as hard constraints; see the
 # methodology section of README. A variant is "feasible" iff it satisfies all of these
 # AND a threshold exists on DS1-val reaching TARGET_RECALL. In practice ONLY latency
-# binds: it eliminates exactly cnn_c16-32-64-64 (238ms) and lstm_h32x2 (262ms). Flash
-# and RAM are guardrails set to the real single-model hardware ceiling that no variant
-# approaches (max flash rf_n80_d12 = 1005KB; max RAM ~5.3KB) -- compute speed is the
-# real selector.
+# binds: on the measured device timings it rejects 5 of 36 configs -- cnn_c16-32-32
+# (110.3ms), cnn_c16-32-64-64 (263.6ms), lstm_h32x2 (266.0ms), crnn_c16-32_h32 (155.3ms)
+# and crnn_c16-32-32_h32 (140.8ms) -- leaving 31 feasible. Flash and RAM are guardrails
+# set to the real single-model hardware ceiling that no variant approaches (max flash
+# rf_n80_d12 = 1005KB; max RAM cnn_c4 = 5.3KB) -- compute speed is the real selector.
 LATENCY_BUDGET_MS = 100.0   # per-beat end-to-end (feature extraction + inference). THE
                             # binding constraint. Tachycardia ~200 bpm => beats ~300 ms
                             # apart; 100 ms gives ~3x headroom + "instant" detection.

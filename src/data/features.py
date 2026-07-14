@@ -7,7 +7,8 @@ from scipy.stats import kurtosis, skew
 
 
 def extract_features(beat: np.ndarray, rr_prev: float, rr_post: float) -> np.ndarray:
-    """~30 hand-crafted features per beat."""
+    """21 hand-crafted features per beat: 10 time-domain stats + 5 wavelet band
+    energies (db4, level 4) + 2 spectral + 4 RR-interval."""
     feats: list[float] = []
     # time-domain stats
     feats += [
